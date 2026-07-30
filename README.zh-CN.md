@@ -111,13 +111,7 @@ npm run check
 
 检查内容包括 JavaScript 语法、Manifest 资源、语言文件、版本一致性、旧本地后端残留和不应进入公开仓库的文件。
 
-## 发布
 
-- 商店上架模板：[`docs/store/`](docs/store/)
-- 发布检查表：[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
-- 商店素材：[`store-assets/`](store-assets/)
-
-商店截图必须使用实际运行中的最新版界面。Edge 和 Chrome 都可以分别上传中文与英文截图。
 
 ## 已知限制
 
