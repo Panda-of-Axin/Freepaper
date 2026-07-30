@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. -->
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title data-i18n="monitorTitle">Freepaper download monitor</title>
+  <style>
+    :root { color-scheme: light; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0;background:#f8fafc;color:#172033; }
+    .wrap { padding:18px; }
+    .head { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+    h1 { margin:0;font-size:18px; }
+    .badge { border-radius:999px;padding:4px 9px;background:#e0e7ff;color:#3730a3;font-size:11px;font-weight:700; }
+    .card { background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 8px 24px rgba(15,23,42,.06); }
+    .label { color:#64748b;font-size:11px;margin-bottom:5px; }
+    .value { font-size:13px;line-height:1.55;word-break:break-word; }
+    .doi { font-size:11px;color:#475569;margin-top:7px;word-break:break-all; }
+    .bar { height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin:10px 0 7px; }
+    .bar > div { height:100%;background:#4f46e5;width:0;transition:width .2s ease; }
+    .stats { font-size:11px;color:#64748b; }
+    .actions { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px; }
+    button { border:0;border-radius:9px;padding:10px 9px;font-size:12px;font-weight:700;cursor:pointer; }
+    button:disabled { opacity:.55;cursor:not-allowed; }
+    .primary { grid-column:1/-1;background:#2563eb;color:#fff; }
+    .focus { grid-column:1/-1;background:#eef2ff;color:#3730a3; }
+    .secondary { background:#e2e8f0;color:#1e293b; }
+    .danger { background:#fee2e2;color:#b91c1c; }
+    .muted { color:#94a3b8;font-size:12px;line-height:1.55; }
+    .current { margin-top:8px;padding:8px 10px;border-radius:9px;background:#f8fafc;font-size:11px;line-height:1.45;word-break:break-all; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="head"><h1 data-i18n="monitorTitle">Freepaper download monitor</h1><div class="badge" id="phaseBadge" data-i18n="monitorBadge">Live monitor</div></div>
+
+    <section class="card">
+      <div class="label" data-i18n="currentPaperStatus">Current paper status</div>
+      <div class="value" id="sdMessage" data-i18n="readingTasks">Reading task…</div>
+      <div class="doi" id="sdDoi"></div>
+      <div class="actions">
+        <button class="primary" id="btnContinue" data-i18n="continueChecking">I’m done, continue checking</button>
+        <button class="focus" id="btnFocus" data-i18n="taskPage">Go to task page</button>
+        <button class="secondary" id="btnPause" data-i18n="pauseBatch">Pause batch</button>
+        <button class="secondary" id="btnSkip" data-i18n="skipPaper">Skip current paper</button>
+        <button class="danger" id="btnStop" data-i18n="stopAll">Stop all</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="label" data-i18n="batchProgress">Batch download progress</div>
+      <div class="value" id="batchTitle" data-i18n="noBatchTask">No batch task</div>
+      <div class="bar"><div id="progressFill"></div></div>
+      <div class="stats" id="batchStats">0 / 0</div>
+      <div class="current" id="currentPaper" style="display:none"></div>
+    </section>
+
+    <div class="muted" data-i18n="monitorHint">This is an auxiliary monitor. Closing it does not stop the background task.</div>
+  </main>
+  <script src="i18n.js"></script>
+  <script src="task-monitor.js"></script>
+</body>
+</html>

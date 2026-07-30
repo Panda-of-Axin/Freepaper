@@ -1,0 +1,10 @@
+{
+  "name": "freepaper-extension",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node tools/check-extension.mjs"
+  },
+  "license": "MPL-2.0"
+}

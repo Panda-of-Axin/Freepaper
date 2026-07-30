@@ -1,0 +1,30 @@
+# Build/release output
+*.zip
+*.crx
+*.pem
+dist/
+build/
+coverage/
+node_modules/
+
+# Local configuration and data
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.db
+*.log
+data/
+browser_profile/
+
+# Editor/OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*~
