@@ -8,6 +8,7 @@
 Current version: **v1.4.0**
 
 > Note: Freepaper is now available on Edge and Chrome browsers. The author holds all related rights. This project is for reference purposes only and may not be used for commercial purposes.
+
 > Freepaper helps users download content they are authorized to access. It does not bypass paywalls, institutional permissions, security verification, or website technical measures.
 
 ## Features
