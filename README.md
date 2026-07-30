@@ -111,13 +111,7 @@ npm run check
 
 The check validates JavaScript syntax, manifest resources, locale files, version consistency, legacy backend markers, and files that must not enter the public repository.
 
-## Publishing
 
-- Store submission templates: [`docs/store/`](docs/store/)
-- Release checklist: [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
-- Store assets: [`store-assets/`](store-assets/)
-
-Store screenshots should be captured from the actual latest build. English and Chinese localized screenshots can be uploaded separately in both stores.
 
 ## Known limitations
 
