@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "Freepaper"
+  },
+  "extensionDescription": {
+    "message": "Open-source academic PDF downloader with batch DOI/URL import, deduplication, subfolders, task recovery, and assisted verification."
+  },
+  "extensionActionTitle": {
+    "message": "Freepaper — academic PDF downloader"
+  }
+}
