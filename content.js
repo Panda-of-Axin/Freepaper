@@ -157,12 +157,13 @@ function renderOverlay(payload) {
     return;
   }
 
+  // 渲染键只包含实际展示的内容；不含 updatedAt，避免后台每次保存任务
+  // （每 1.2s 心跳）都触发整块 shadow DOM 重建，打断拖拽和按钮状态。
   const nextRenderKey = JSON.stringify({
     taskId: desiredOverlay.taskId || '',
     status: desiredOverlay.status || '',
     message: desiredOverlay.message || '',
     doi: desiredOverlay.doi || '',
-    updatedAt: desiredOverlay.updatedAt || 0,
   });
   const existingHost = document.getElementById(OVERLAY_ID);
   if (existingHost && overlayRenderKey === nextRenderKey) {

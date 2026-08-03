@@ -51,6 +51,7 @@ let downloadFolder = 'freepaper';
 let autoOpenTaskMonitorOnChallenge = false;
 let lastBatchUpdatedAt = -1;
 let lastSdUpdatedAt = -1;
+let batchTabAutoSwitched = false;
 let lastParseStats = {
   inputRecords: 0, uniquePapers: 0, duplicatesRemoved: 0,
   uniqueTitles: 0, isDiagnosticTable: false,
@@ -101,12 +102,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   $('btnContinueVerify')?.addEventListener('click', async () => {
-    await chrome.runtime.sendMessage({ command: 'SD_CONTINUE' });
+    await chrome.runtime.sendMessage({ command: 'SD_CONTINUE' }).catch(() => null);
     const data = await chrome.storage.local.get('sd_notification');
     renderSdNotification(data.sd_notification);
   });
   $('btnStopSd')?.addEventListener('click', async () => {
-    await chrome.runtime.sendMessage({ command: 'SD_SKIP' });
+    await chrome.runtime.sendMessage({ command: 'SD_SKIP' }).catch(() => null);
     $('statusLabel').textContent = t('sd_STOPPED');
   });
   $('btnClearRecent')?.addEventListener('click', async () => {
@@ -117,7 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   $('btnStopAll')?.addEventListener('click', async () => {
-    const result = await chrome.runtime.sendMessage({ command: 'BATCH_STOP' });
+    const result = await chrome.runtime.sendMessage({ command: 'BATCH_STOP' }).catch(() => null);
     isBatchRunning = false;
     $('sdNotify').style.display = 'none';
     if (result?.state) renderBatchProgress(result.state);
@@ -194,9 +195,15 @@ async function syncPersistentTaskState(force = false) {
     const stamp = batch.updatedAt || 0;
     if (force || stamp !== lastBatchUpdatedAt) {
       lastBatchUpdatedAt = stamp;
-      switchTab('batch');
+      // 仅在批量任务从"未运行"变为"运行中"时自动切到批量标签一次，
+      // 避免每次状态刷新都劫持用户当前所在标签/设置面板。
+      if (batch.running && !batchTabAutoSwitched) {
+        batchTabAutoSwitched = true;
+        switchTab('batch');
+      }
       renderBatchProgress(batch);
     }
+    if (!batch.running) batchTabAutoSwitched = false;
   } else if (force) {
     isBatchRunning = false;
   }
@@ -437,9 +444,8 @@ function DETECT_JS() {
     let s = 0;
 
     // 绝对排除：非文档类型的静态资源
-    for (const ext of ['.css','.js','.woff','.ttf','.svg','.png','.jpg','.jpeg','.gif','.ico','.webp','.map','.json','.xml']) {
-      if (l.includes(ext) && !l.includes('.pdf')) return -1000;
-    }
+    // 按扩展名边界匹配，避免 ".js" 误杀 ".jsp"（IEEE stampPDF/getPDF.jsp）等。
+    if (/\.(css|js|woff2?|ttf|eot|svg|png|jpe?g|gif|ico|webp|map|json|xml)([?#]|$)/.test(l.split(' ')[0]) && !l.includes('pdf')) return -1000;
 
     // PDF 直接链接
     if (l.includes('stamppdf/getpdf.jsp')) s += 90;
@@ -521,7 +527,6 @@ async function checkPagePdfs() {
         fragment.appendChild(row);
       }
       list.replaceChildren(fragment);
-      await chrome.storage.local.set({ _page_pdf_candidates: pageData });
       return;
     }
 
@@ -558,6 +563,10 @@ async function checkPagePdfs() {
 
 async function downloadAllPage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    $('statusLabel').textContent = t('noActiveTab');
+    return;
+  }
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: DETECT_JS,
@@ -581,6 +590,10 @@ async function downloadAllPage() {
 
 async function downloadSingle(url) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    $('statusLabel').textContent = t('noActiveTab');
+    return;
+  }
   let title = 'paper';
   try {
     const results = await chrome.scripting.executeScript({
@@ -624,33 +637,6 @@ async function rescanPage() {
 // =========================================================================
 // Panel 2: Batch Download
 // =========================================================================
-
-function parseDelimitedLine(line) {
-  const cells = [];
-  let current = '';
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (quoted && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-    if (!quoted && (char === ',' || char === '\t')) {
-      cells.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  cells.push(current.trim());
-  return cells;
-}
-
 
 // 解析完整 CSV/TXT，支持引号内逗号、双引号转义和引号内换行。
 function parseDelimitedText(text) {
@@ -977,7 +963,7 @@ function clearBatch() {
   cleanupCompletionUI();
   // 同步清除 storage 中的批量任务状态
   chrome.storage.local.remove('batch_state');
-  chrome.runtime.sendMessage({ command: 'BATCH_STOP' });
+  chrome.runtime.sendMessage({ command: 'BATCH_STOP' }).catch(() => null);
 }
 
 // 清理上次完成留下的汇总表、导出按钮等
@@ -985,7 +971,6 @@ function cleanupCompletionUI() {
   $('summaryTable')?.remove();
   $('exportArea')?.remove();
   $('btnRetryFailed')?.remove();
-  $('btnExportCsv')?.remove();
   $('progressSection').classList.remove('visible');
   $('btnStopAll').style.display = 'none';
   $('statusDot').className = 'status-dot';
@@ -1005,7 +990,7 @@ async function startBatch() {
   }
 
   if (isBatchRunning) {
-    const result = await chrome.runtime.sendMessage({ command: 'batch_stop' });
+    const result = await chrome.runtime.sendMessage({ command: 'batch_stop' }).catch(() => null);
     isBatchRunning = false;
     if (result?.state) renderBatchProgress(result.state);
     return;
@@ -1020,7 +1005,7 @@ async function startBatch() {
     command: 'batch_start',
     papers: batchPapers,
     folder: downloadFolder,
-  });
+  }).catch((error) => ({ ok: false, error: error?.message }));
   if (!response?.ok) {
     isBatchRunning = false;
     $('btnStartBatch').textContent = t('startBatch');
@@ -1108,7 +1093,7 @@ function renderBatchProgress(state) {
       area.className = 'export-area';
       area.innerHTML = `
         <div class="title">${t('downloadComplete')}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+        <div id="exportSummaryText" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
           ${t('completionSummary', { total: state.total, done, failed, login: needsLogin })}
         </div>
         <button class="btn btn-primary" style="width:100%;margin-bottom:4px;" id="btnExportCsvAction">
@@ -1120,7 +1105,8 @@ function renderBatchProgress(state) {
       $('btnExportCsvAction').addEventListener('click', exportSummaryCsv);
     } else {
       // 更新已有区域
-      $('exportArea').querySelector('div:last-child').textContent =
+      const summaryText = $('exportSummaryText');
+      if (summaryText) summaryText.textContent =
         `${t('completionSummary', { total: state.total, done, failed, login: needsLogin })}`;
     }
   }
