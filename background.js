@@ -40,6 +40,21 @@ function runSdTaskExclusive(taskId, operation) {
   });
 }
 
+// 在任务级互斥锁内完成"读-改-写"，供并发触发的导航/标签页监听器使用，
+// 避免多个事件同时 getSdTask→mutate→saveSdTask 时相互覆盖字段。
+// mutator(task) 返回真值则保存，返回假值则放弃本次修改。
+async function mutateSdTaskExclusive(mutator) {
+  const peek = await getSdTask();
+  if (!peek?.id) return null;
+  return runSdTaskExclusive(peek.id, async () => {
+    const task = await getSdTask();
+    if (!task || task.id !== peek.id) return null;
+    const shouldSave = await mutator(task);
+    if (shouldSave) await saveSdTask(task);
+    return task;
+  });
+}
+
 async function getFreepaperSettings() {
   const data = await chrome.storage.local.get('freepaper_settings');
   return {
@@ -1697,6 +1712,25 @@ async function runBatch(initialState) {
 async function recoverActiveBatch(reason = 'startup') {
   const state = await loadBatchState();
   if (!state?.running || state.paused || !state.jobId) return;
+  // Worker 被回收后可能留下停在 downloading 的当前篇。允许重试一次；
+  // 若同一篇反复在恢复时仍处于 downloading，判定为中断失败并跳到下一篇，
+  // 避免批量任务卡死或无限重开标签页。
+  if (batchRunnerJobId !== state.jobId) {
+    const index = Number.isInteger(state.nextIndex) ? state.nextIndex : (state.current || 0);
+    const paper = state.papers?.[index];
+    if (paper?.status === 'downloading') {
+      paper.resumeCount = (paper.resumeCount || 0) + 1;
+      if (paper.resumeCount > 2) {
+        paper.status = 'failed';
+        paper.error = '任务中断（后台被回收后多次恢复失败）';
+        paper.completedAt = Date.now();
+        state.nextIndex = index + 1;
+        state.activeIndex = -1;
+        state.activeTabId = null;
+      }
+      await saveBatchState(state);
+    }
+  }
   console.log(`[Freepaper] 恢复批量任务 (${reason}):`, state.jobId, state.nextIndex ?? state.current);
   void runBatch(state);
 }
@@ -1720,14 +1754,15 @@ function detectPdfsInPage() {
     const p = new URLSearchParams(location.search);
     if (p.get('arnumber')) push(`https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=${p.get('arnumber')}`);
   }
-  // ScienceDirect
+  // ScienceDirect：文章页可由 PII 直接构造 PDF 下载 URL
   if (location.hostname.includes('sciencedirect.com')) {
     const m = location.pathname.match(/\/pii\/([A-Za-z0-9]+)/);
+    if (m) push(`https://www.sciencedirect.com/science/article/pii/${m[1]}/pdfft?isDTMRedir=true&download=true`);
+  }
   // pdf.sciencedirectassets.com：URL 即 PDF
   if (location.hostname === 'pdf.sciencedirectassets.com') push(location.href);
   // embed/object PDF
   document.querySelectorAll('embed[type="application/pdf"],object[type="application/pdf"]').forEach(el => push(el.src || el.data));
-  }
 
   // Score + filter
   const candidates = [];
@@ -1735,7 +1770,8 @@ function detectPdfsInPage() {
   for (const raw of out) {
     let url; try { url = new URL(raw, location.href).href; } catch(_) { continue; }
     const l = url.toLowerCase();
-    if (l.includes('.css')||l.includes('.js')||l.includes('.woff')||l.includes('.svg')||l.includes('.png')||l.includes('.jpg')) continue;
+    // 按扩展名边界排除静态资源，避免 ".js" 误杀 ".jsp"/".json" 类 URL。
+    if (/\.(css|js|woff2?|ttf|svg|png|jpe?g|gif|ico|webp)([?#]|$)/.test(l) && !l.includes('pdf')) continue;
     if (seen.has(url)) continue;
     seen.add(url);
 
@@ -1965,7 +2001,7 @@ async function recoverSdUi(reason) {
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Freepaper] 扩展已安装/更新:', details?.reason || 'unknown');
   await chrome.storage.local.set({
-    freepaper_build_info: { version: '1.3.7', build: 'github-ready-extension-only', installedAt: Date.now() },
+    freepaper_build_info: { version: chrome.runtime.getManifest().version, build: 'github-ready-extension-only', installedAt: Date.now() },
   });
   await migrateLegacyBatchState(`onInstalled:${details?.reason || 'unknown'}`);
   chrome.alarms.create(BATCH_RESUME_ALARM, { periodInMinutes: 1 });
@@ -1975,7 +2011,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await chrome.storage.local.set({
-    freepaper_build_info: { version: '1.3.7', build: 'github-ready-extension-only', startedAt: Date.now() },
+    freepaper_build_info: { version: chrome.runtime.getManifest().version, build: 'github-ready-extension-only', startedAt: Date.now() },
   });
   await migrateLegacyBatchState('browser_startup');
     chrome.alarms.create(BATCH_RESUME_ALARM, { periodInMinutes: 1 });
@@ -1996,9 +2032,8 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((details) => {
 
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (details.frameId !== 0) return;
-  void (async () => {
-    const task = await getSdTask();
-    if (!task || SD_TERMINAL_STATUSES.has(task.status) || !isTaskTab(task, details.tabId)) return;
+  void mutateSdTaskExclusive((task) => {
+    if (SD_TERMINAL_STATUSES.has(task.status) || !isTaskTab(task, details.tabId)) return false;
     task.activeTabId = details.tabId;
     task.lastUrl = details.url || task.lastUrl || '';
     if (details.tabId === task.pdfTabId || task.stage === 'OPENING_PDF' ||
@@ -2008,19 +2043,21 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
       task.status = 'OPENING_PDF';
       task.challengePhase = 2;
     }
-    await saveSdTask(task);
-  })();
+    return true;
+  });
 });
 
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0) return;
   void (async () => {
-    const task = await getSdTask();
+    const task = await mutateSdTaskExclusive((current) => {
+      if (SD_TERMINAL_STATUSES.has(current.status) || !isTaskTab(current, details.tabId)) return false;
+      current.activeTabId = details.tabId;
+      current.activeDocumentId = details.documentId || null;
+      current.lastUrl = details.url || current.lastUrl || '';
+      return true;
+    });
     if (!task || SD_TERMINAL_STATUSES.has(task.status) || !isTaskTab(task, details.tabId)) return;
-    task.activeTabId = details.tabId;
-    task.activeDocumentId = details.documentId || null;
-    task.lastUrl = details.url || task.lastUrl || '';
-    await saveSdTask(task);
     scheduleSdInspection(details.tabId, {
       reason: 'committed',
       documentId: details.documentId,
@@ -2067,16 +2104,18 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 chrome.tabs.onCreated.addListener((tab) => {
   if (!Number.isInteger(tab.id) || !Number.isInteger(tab.openerTabId)) return;
   void (async () => {
-    const task = await getSdTask();
-    if (!task || SD_TERMINAL_STATUSES.has(task.status) || !isTaskTab(task, tab.openerTabId)) return;
-    task.activeTabId = tab.id;
-    task.pdfTabId = tab.id;
-    task.stage = 'OPENING_PDF';
-    task.status = 'OPENING_PDF';
-    task.challengePhase = 2;
-    task.openedFromTabId = tab.openerTabId;
-    task.lastUrl = tab.pendingUrl || tab.url || '';
-    await saveSdTask(task);
+    const task = await mutateSdTaskExclusive((current) => {
+      if (SD_TERMINAL_STATUSES.has(current.status) || !isTaskTab(current, tab.openerTabId)) return false;
+      current.activeTabId = tab.id;
+      current.pdfTabId = tab.id;
+      current.stage = 'OPENING_PDF';
+      current.status = 'OPENING_PDF';
+      current.challengePhase = 2;
+      current.openedFromTabId = tab.openerTabId;
+      current.lastUrl = tab.pendingUrl || tab.url || '';
+      return true;
+    });
+    if (!task || task.pdfTabId !== tab.id) return;
     scheduleSdInspection(tab.id, {
       reason: 'tabs_created_with_opener',
       url: tab.pendingUrl || tab.url || '',
@@ -2086,17 +2125,18 @@ chrome.tabs.onCreated.addListener((tab) => {
   })();
 });
 
-chrome.tabs.onRemoved.addListener(async (tabId) => {
-  const task = await getSdTask();
-  if (!task || SD_TERMINAL_STATUSES.has(task.status) || !isTaskTab(task, tabId)) return;
-  const remaining = [task.pdfTabId, task.articleTabId, task.activeTabId]
-    .filter(id => Number.isInteger(id) && id !== tabId);
-  task.activeTabId = remaining[0] ?? null;
-  if (!task.activeTabId) {
-    task.status = 'WAITING_MANUAL_PDF';
-    task.lastError = '任务页面已关闭；请在任务监控窗中跳过或终止。';
-  }
-  await saveSdTask(task);
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void mutateSdTaskExclusive((task) => {
+    if (SD_TERMINAL_STATUSES.has(task.status) || !isTaskTab(task, tabId)) return false;
+    const remaining = [task.pdfTabId, task.articleTabId, task.activeTabId]
+      .filter(id => Number.isInteger(id) && id !== tabId);
+    task.activeTabId = remaining.length ? remaining[0] : null;
+    if (!Number.isInteger(task.activeTabId)) {
+      task.status = 'WAITING_MANUAL_PDF';
+      task.lastError = '任务页面已关闭；请在任务监控窗中跳过或终止。';
+    }
+    return true;
+  });
 });
 
 chrome.windows.onCreated.addListener((win) => {

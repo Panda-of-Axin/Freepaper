@@ -50,7 +50,6 @@
       groupSuccess: '✅ Success', groupLogin: '🔐 Login required', groupFailed: '❌ Failed',
       buildingRetry: 'Building a retry queue with only {count} paper(s)…', retryStartFailed: 'Failed to start retry: {message}',
       retryOnly: 'Retrying only {count} failed/login-required paper(s)', justNow: 'Just now', minutesAgo: '{count}m ago',
-      closeSettings: 'Close settings',
       sd_OPENING: 'Opening the paper page…', sd_ARTICLE_READY: 'Article page ready; opening PDF…', sd_OPENING_PDF: 'Opening PDF page…',
       sd_PDF_PAGE_READY: 'PDF page ready; validating and downloading…', sd_CHECKING_AFTER_CHALLENGE: 'Waiting for the page to stabilize and checking again…',
       sd_WAITING_CHALLENGE_1: 'Complete the first security verification, then click Continue.',
