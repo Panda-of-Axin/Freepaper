@@ -113,22 +113,50 @@ function getRoot() {
   return document.documentElement || document.body || null;
 }
 
+function clearPdfActionHighlights() {
+  document.querySelectorAll('[data-freepaper-pdf-highlighted="1"]').forEach((element) => {
+    element.style.removeProperty('outline');
+    element.style.removeProperty('outline-offset');
+    element.style.removeProperty('box-shadow');
+    element.removeAttribute('data-freepaper-pdf-highlighted');
+  });
+}
+
+function updatePdfActionHighlights(enabled) {
+  clearPdfActionHighlights();
+  if (!enabled) return;
+  document.querySelectorAll('a,button,[role="button"],[data-url],[data-href]').forEach((element) => {
+    if (!isLikelyPdfActionElement(element)) return;
+    element.setAttribute('data-freepaper-pdf-highlighted', '1');
+    element.style.setProperty('outline', '3px solid #2563eb', 'important');
+    element.style.setProperty('outline-offset', '3px', 'important');
+    element.style.setProperty('box-shadow', '0 0 0 6px rgba(37,99,235,.16)', 'important');
+  });
+}
+
 function removeOverlay() {
   document.getElementById(OVERLAY_ID)?.remove();
+  clearPdfActionHighlights();
   overlayRenderKey = '';
   dragState = null;
 }
 
 function phaseLabel(payload) {
-  if (payload?.status === 'WAITING_CHALLENGE_2' || payload?.phase === 2) return t('phaseChallenge2');
-  if (payload?.status === 'WAITING_CHALLENGE_1') return t('phaseChallenge1');
+  if (payload?.guidanceType === 'verification') return t('phaseVerificationRound', { round: payload.verificationRound || 1 });
+  if (payload?.guidanceType === 'institution_login') return '机构认证';
+  if (payload?.guidanceType === 'account_login') return '账号登录';
+  if (payload?.guidanceType === 'waiting_download') return '等待下载';
   if (payload?.status === 'WAITING_MANUAL_PDF') return t('phaseManual');
+  if (payload?.guidanceType === 'permission') return t('phasePermission');
   if (payload?.status === 'ACCESS_DENIED') return t('phaseAccess');
   return t('phaseAction');
 }
 
 function overlayMessage(payload) {
-  return payload?.status ? FreepaperI18n.status(payload.status) : (payload?.message || t('overlayDefaultMessage'));
+  // 后台已经根据“机构认证 / 个人账号登录 / 人机验证 / 购买页 / PDF 已打开”
+  // 生成了精确说明。旧版优先使用通用 status 文案，导致所有情况都显示成
+  // “请点击 View PDF”。这里必须优先展示后台的具体 message。
+  return payload?.message || (payload?.status ? FreepaperI18n.status(payload.status) : t('overlayDefaultMessage'));
 }
 
 function ensureRootThenRender() {
@@ -222,15 +250,16 @@ function renderOverlay(payload) {
       </div>
       ${payload.doi ? `<div class="doi" title="${escapeHtml(payload.doi)}">${escapeHtml(payload.doi)}</div>` : ''}
       <div class="msg">${escapeHtml(overlayMessage(payload))}</div>
-      <div class="hint">${t('overlayHint')}</div>
+      <div class="hint">${escapeHtml(payload.hint || t('overlayHint'))}</div>
       <div class="actions">
-        <button class="primary" id="fp-continue">${t('continueChecking')}</button>
+        <button class="primary" id="fp-continue">${escapeHtml(payload.primaryLabel || t('continueChecking'))}</button>
         <button class="secondary" id="fp-skip">${t('skipPaper')}</button>
         <button class="danger" id="fp-stop">${t('stopAll')}</button>
       </div>
     </div>`;
 
   overlayRenderKey = nextRenderKey;
+  updatePdfActionHighlights(payload.status === 'WAITING_MANUAL_PDF');
   installOverlayDragging(host);
   requestAnimationFrame(() => applyOverlayPosition(host, true));
 
@@ -252,6 +281,31 @@ function renderOverlay(payload) {
 
   startHealthCheck();
 }
+
+function isLikelyPdfActionElement(element) {
+  const target = element?.closest?.('a,button,[role="button"],[data-url],[data-href]');
+  if (!target) return null;
+  const text = String(target.innerText || target.textContent || target.getAttribute('aria-label') || target.getAttribute('title') || '')
+    .replace(/\s+/g, ' ').trim();
+  const rawHref = target.getAttribute('href') || target.getAttribute('data-url') || target.getAttribute('data-href') || '';
+  let href = '';
+  try { href = rawHref ? new URL(rawHref, location.href).href : ''; } catch (_) {}
+  const haystack = `${text} ${href}`.toLowerCase();
+  const textMatch = /(?:view|download|open|full\s*text)[\s_-]*pdf|pdf[\s_-]*(?:download|全文|下载)|pdf下载|下载pdf|全文下载|查看pdf/.test(haystack);
+  const routeMatch = /\.pdf(?:$|[?#])|\/(?:pdf|pdfdirect|epdf|pdfft)(?:\/|$)|stamppdf\/getpdf\.jsp|dflag=pdfdown/i.test(href);
+  return textMatch || routeMatch ? { target, text, href } : null;
+}
+
+document.addEventListener('click', (event) => {
+  const action = isLikelyPdfActionElement(event.target);
+  if (!action) return;
+  void chrome.runtime.sendMessage({
+    type: 'PDF_ACTION_CLICKED',
+    text: action.text.slice(0, 180),
+    href: action.href.slice(0, 2000),
+    trusted: event.isTrusted,
+  }).catch(() => null);
+}, true);
 
 async function syncOverlay() {
   if (syncInFlight) return;

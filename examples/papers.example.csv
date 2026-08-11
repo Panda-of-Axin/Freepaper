@@ -1,3 +1,4 @@
-doi,url
-10.48550/arXiv.2010.08895,https://arxiv.org/abs/2010.08895
-10.48550/arXiv.2109.03697,https://arxiv.org/abs/2109.03697
+﻿doi,url,title
+10.48550/arXiv.2010.08895,https://arxiv.org/abs/2010.08895,Fourier Neural Operator for Parametric Partial Differential Equations
+10.48550/arXiv.2109.03697,https://arxiv.org/abs/2109.03697,U-FNO—An enhanced Fourier neural operator-based deep-learning model for multiphase flow
+,https://whzg.cbpt.cnki.net/portal/journal/portal/client/paper/fd92a159a861cfae98dfe1b301c1296a,中国知网“学术期刊优先数字出版平台”应用体会

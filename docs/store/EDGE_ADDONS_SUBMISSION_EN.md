@@ -17,7 +17,7 @@ Freepaper is an open-source academic PDF downloader for students and researchers
 
 Freepaper merges duplicate inputs by DOI, arXiv ID, ScienceDirect PII, and other document identifiers. PDFs are saved to a user-defined subfolder under the browser Downloads directory. Persistent task state helps unfinished work recover after page navigation or Manifest V3 service-worker suspension.
 
-The main popup acts as the control center. A separate download monitor provides continuous progress, while the draggable verification assistant appears only when a publisher requires a CAPTCHA, institutional sign-in, or manual PDF action. Users can pause, resume, skip, stop, and retry only failed or login-required papers. Recent downloads shows only downloads created and registered by Freepaper.
+The main popup acts as the control center. A separate download monitor provides continuous progress, while the draggable verification assistant appears only when a publisher requires a CAPTCHA, institutional sign-in, or manual PDF action. Users can pause, resume, skip, stop, and retry only failed or login-required papers. Recent downloads shows only downloads created by Freepaper or a PDF explicitly associated with the active verification task; unrelated browser downloads are ignored.
 
 The interface supports English, Simplified Chinese, and automatic browser-language detection. Freepaper does not upload paper lists, browsing history, sign-in information, or download history to a developer-operated server and contains no advertising, analytics, or tracking SDK.
 

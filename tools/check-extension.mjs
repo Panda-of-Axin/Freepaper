@@ -13,7 +13,7 @@ function requireFile(relativePath) {
 }
 
 for (const file of ['background.js', 'content.js', 'i18n.js', 'popup.html', 'popup.js',
-  'task-monitor.html', 'task-monitor.js', 'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md']) {
+  'task-monitor.html', 'task-monitor.js', 'onboarding.html', 'onboarding.js', 'examples/freepaper-example.csv', 'examples/Freepaper_v2.0.2_页面上下文下载回归测试.csv', 'docs/Freepaper_v2.0.2_代码审计与修复说明.md', 'docs/Freepaper_v2.0.2_功能验证与回归测试文档.md', 'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md']) {
   requireFile(file);
 }
 for (const icon of Object.values(manifest.icons || {})) requireFile(icon);
@@ -53,8 +53,38 @@ if (manifest.name !== '__MSG_extensionName__') errors.push('manifest name must u
 if (manifest.description !== '__MSG_extensionDescription__') errors.push('manifest description must use localized extensionDescription');
 if (manifest.default_locale !== 'en') errors.push('default_locale must be en');
 
+
+const background = fs.readFileSync(path.join(root, 'background.js'), 'utf8');
+const popupJs = fs.readFileSync(path.join(root, 'popup.js'), 'utf8');
+for (const requiredMarker of [
+  'stampPDF/getPDF.jsp',
+  '/doi/pdfdirect/',
+  'normalizeDetectedPaperTitle',
+  'task.batchJobId',
+  'PDF_ACTION_CLICKED',
+  'verificationRound',
+  'autoPdfAttemptKey',
+  'WAITING_BROWSER_DOWNLOAD',
+  'onDeterminingFilename',
+  'INSTITUTION_AUTH_REQUIRED',
+  'ACCOUNT_AUTH_REQUIRED',
+  'canonicalizePublisherPdfUrl',
+  'tryStartPageContextPdfDownload',
+  'CONTEXT_BOUND_PDF_URL',
+]) {
+  if (!background.includes(requiredMarker)) errors.push(`Publisher-routing marker missing from background.js: ${requiredMarker}`);
+}
+if (!popupJs.includes('hasBlockedStaticExtension')) errors.push('popup.js must use path-based static-extension filtering');
+const contentJs = fs.readFileSync(path.join(root, 'content.js'), 'utf8');
+if (!contentJs.includes('payload?.message')) errors.push('content.js must prefer precise background guidance');
+if (background.includes('activeDocumentId || task.lastUrl') && background.includes('pdfActionRound || 0')) errors.push('legacy IEEE auto-attempt key appears to remain');
+if (background.includes("l.includes('.js')") || popupJs.includes("l.includes('.js')")) {
+  errors.push('Substring-based .js filtering remains and may reject .jsp URLs');
+}
+
 const popup = fs.readFileSync(path.join(root, 'popup.html'), 'utf8');
-if (!popup.includes(`v${manifest.version}`)) errors.push('popup.html version does not match manifest.json');
+const displayVersion = manifest.version.endsWith('.0') ? manifest.version.slice(0, -2) : manifest.version;
+if (!popup.includes(`v${displayVersion}`)) errors.push('popup.html display version does not match manifest.json');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 if (pkg.version !== manifest.version) errors.push('package.json version does not match manifest.json');
 

@@ -35,10 +35,10 @@
     display: flex; align-items: center; gap: 10px;
   }
   .header-main { display:flex;align-items:center;gap:10px;min-width:0;flex:1; }
-  .header-settings { width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(255,255,255,.28);
+  .header-settings, .header-help { width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(255,255,255,.28);
     border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:16px;
     display:flex;align-items:center;justify-content:center; }
-  .header-settings:hover { background:rgba(255,255,255,.22); }
+  .header-settings:hover, .header-help:hover { background:rgba(255,255,255,.22); }
   .header-refresh { width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(255,255,255,.28);
     border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:14px;
     display:flex;align-items:center;justify-content:center;margin-right:6px; }
@@ -159,6 +159,14 @@
   .settings-options { margin-top:8px; }
   .settings-actions { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px; }
 
+  .quick-start { margin:10px 12px 8px;padding:12px;border:1px solid #bae6fd;border-radius:12px;background:linear-gradient(135deg,#f0f9ff,#ffffff);box-shadow:0 7px 20px rgba(2,132,199,.08); }
+  .quick-start h2 { margin:0 0 6px;font-size:13px;color:#0c4a6e; }
+  .quick-start ol { margin:0 0 9px;padding-left:20px;font-size:10px;line-height:1.65;color:#475569; }
+  .quick-actions { display:grid;grid-template-columns:1fr 1fr;gap:6px; }
+  .quick-actions button { border:0;border-radius:8px;padding:8px;font-size:10px;font-weight:700;cursor:pointer; }
+  .quick-primary { background:#0284c7;color:#fff; }
+  .quick-secondary { background:#e0f2fe;color:#075985; }
+  .quick-dismiss { grid-column:1/-1;background:#f1f5f9;color:#64748b; }
   .footer { padding: 6px 14px; text-align: center; font-size: 10px; color: #94a3b8; }
 </style>
 </head>
@@ -169,10 +177,11 @@
     <img src="icons/icon48.png" alt="Freepaper">
     <div>
       <h1>Freepaper</h1>
-      <div class="version" data-i18n="versionLabel">v1.4.0 · Bilingual interface and new icon</div>
+      <div class="version" data-i18n="versionLabel">v2.0.2 · Page-context PDF & HTML-download guard</div>
     </div>
   </div>
   <button class="header-refresh" id="btnRefresh" type="button" title="Refresh status" data-i18n-title="refreshStatus">↻</button>
+  <button class="header-help" id="btnHelp" type="button" title="Help" aria-label="Open help" data-i18n-title="help" data-i18n-aria-label="openHelp">?</button>
   <button class="header-settings" id="btnSettings" type="button" title="Settings" aria-label="Open settings" data-i18n-title="settings" data-i18n-aria-label="openSettings">⚙</button>
 </div>
 
@@ -186,9 +195,25 @@
   <span class="status-label" id="statusLabel" data-i18n="ready">Ready</span>
 </div>
 
+<section class="quick-start" id="quickStartCard" style="display:none;">
+  <h2 data-i18n="quickStartTitle">第一次使用？按四步开始</h2>
+  <ol>
+    <li data-i18n="quickStep1">准备包含 DOI 或 URL 的 CSV、TSV 或 TXT。</li>
+    <li data-i18n="quickStep2">导入并检查识别出的论文标题。</li>
+    <li data-i18n="quickStep3">启动任务，保留唯一的下载进程窗。</li>
+    <li data-i18n="quickStep4">Freepaper 会尝试一次明确的 PDF 入口；遇到登录或验证时按页面助手操作。</li>
+  </ol>
+  <div class="quick-actions">
+    <button class="quick-primary" id="btnExampleCsv" data-i18n="downloadExampleCsv">下载示例 CSV</button>
+    <button class="quick-secondary" id="btnCopyExampleCsv" data-i18n="copyExampleCsv">复制示例内容</button>
+    <button class="quick-secondary" id="btnQuickHelp" data-i18n="viewFullGuide">查看完整教程</button>
+    <button class="quick-dismiss" id="btnDismissQuickStart" data-i18n="dontShowAgain">不再显示</button>
+  </div>
+</section>
+
 <!-- SD 人工操作提示 -->
 <div class="sd-notify" id="sdNotify" style="display:none;padding:10px 14px;background:#fef3c7;border-bottom:2px solid #f59e0b;">
-  <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:4px;" data-i18n="sdNeedsAction">🤖 ScienceDirect needs your action</div>
+  <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:4px;" data-i18n="sdNeedsAction">🤖 A publisher page needs your action</div>
   <div style="font-size:11px;color:#a16207;margin-bottom:8px;" id="sdNotifyMsg" data-i18n="waiting">Waiting…</div>
   <div style="display:flex;gap:6px;">
     <button class="btn btn-primary" id="btnContinueVerify" style="flex:1;font-size:11px;">

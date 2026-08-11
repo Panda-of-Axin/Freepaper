@@ -1,131 +1,122 @@
 <div align="center">
+
   <img src="store-assets/freepaper-logo-300.png" width="128" alt="Freepaper icon">
   <h1>Freepaper</h1>
   <p>Open-source academic PDF downloader for Microsoft Edge and Google Chrome.</p>
   <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 </div>
 
-Current version: **v1.4.0**
+> **v2.0.2 page-context PDF and HTML-download guard:** fixes dynamic IEEE `stamp.jsp` and signed ScienceDirect `main.pdf` URLs being requested a second time by `chrome.downloads`, which could return `stamp.htm` or `init.htm`. Freepaper now prefers authenticated article-page fetches and starts a Blob download in that same page context; dynamic publisher endpoints are never sent directly to the downloads API.
 
-> Note: Freepaper is now available on Edge and Chrome browsers. The author holds all related rights. This project is for reference purposes only and may not be used for commercial purposes.
+Current version: **v2.0.2**
 
 > Freepaper helps users download content they are authorized to access. It does not bypass paywalls, institutional permissions, security verification, or website technical measures.
+
+> **Experimental CNKI support:** Freepaper only uses PDF/download routes already exposed by CNKI or CNKI-supported journal pages. It does not bypass authentication, institutional access, CAPTCHAs, or paywalls.
 
 ## Features
 
 - Detect PDF candidates on the current paper page;
-- Import DOI/URL lists from pasted text, CSV, or TXT files;
-- Deduplicate by DOI, arXiv ID, ScienceDirect PII, and other document identifiers;
-- Save PDFs to a custom subfolder under the browser Downloads directory;
-- Recover task state after a Manifest V3 service worker restart;
-- Provide a main control center, a separate download monitor, and a draggable verification assistant;
-- Pause, resume, skip, stop, and retry only failed/login-required papers;
-- Show only downloads created and registered by Freepaper in Recent downloads;
+- Import DOI/URL tasks from pasted text, CSV, TSV, or TXT;
+- Deduplicate by DOI, arXiv ID, ScienceDirect PII, and other identifiers;
+- Save PDFs under a configurable subfolder of the browser Downloads directory;
+- Try one clearly identified PDF link or button, without blindly clicking ads, purchase routes, icons, or static assets;
+- Pause for sign-in or verification, then resume the PDF flow;
+- Prefer authenticated article-page PDF retrieval and save the verified Blob into the Freepaper folder;
+- Reconcile browser download events associated with the active task;
+- Recover state after Manifest V3 service-worker suspension;
+- Provide a popup control center, one reusable task-monitor window, and a draggable page assistant;
+- Pause, resume, skip, stop, and retry failed/login-required papers;
+- Embed a downloadable and copyable example CSV;
 - Export a basic CSV result report;
-- Switch between **English**, **Simplified Chinese**, or **Auto (browser language)**.
+- Support English, Simplified Chinese, and Auto language selection.
+
+## Why Freepaper works this way
+
+1. **Input order is preserved.** Papers are not regrouped by publisher because concentrating one publisher's items may create a denser burst of requests.
+2. **The queue is serial.** Only one paper is processed at a time in the same browser.
+3. **Only clear PDF actions are automated.** Freepaper uses metadata, strict PDF routes, or a clear View PDF / Download PDF control and tries it once per page state.
+4. **Verification remains human.** CAPTCHAs and institutional authentication are never automated or bypassed.
+5. **Confirmed PDFs are saved by Freepaper.** This keeps files in the configured subfolder and aligns the task count with actual downloads.
+6. **Dynamic PDF endpoints are not re-requested by the downloads API.** IEEE, Wiley, ScienceDirect, and CNKI routes may depend on the current page Referrer, cookies, institutional authentication, or one-time tokens. v2.0.2 fetches and verifies the PDF in the authenticated article page and starts a Blob download there, preventing HTML challenge pages from being saved as PDF downloads.
+
+Do not use Freepaper for systematic full-text harvesting, whole issues/volumes, or any use that violates publisher or institutional rules.
 
 ## Browser compatibility
-
-Freepaper uses Chromium Manifest V3 and the standard `chrome.*` extension APIs.
 
 - Microsoft Edge 88 or later;
 - Google Chrome 88 or later.
 
-The same runtime ZIP can be submitted to Edge Add-ons and the Chrome Web Store. Development and testing are currently focused on Edge, so a complete Chrome regression test is recommended before publishing there.
+The same Chromium Manifest V3 runtime package can be tested on both browsers.
 
 ## Install locally
 
-1. Download or clone this repository;
+1. Download or clone the repository;
 2. Open `edge://extensions` or `chrome://extensions`;
-3. Enable **Developer mode**;
-4. Select **Load unpacked**;
-5. Select this repository root—the directory that directly contains `manifest.json`.
+3. Enable Developer mode;
+4. Choose Load unpacked;
+5. Select the directory that directly contains `manifest.json`.
 
 ## Usage
 
-### Current page
+### Batch flow
 
-Open a paper page, click the Freepaper icon, and use **Current page** to detect a PDF.
+```text
+Article page
+→ Freepaper tries one clear PDF action
+→ Login/verification pauses the task
+→ The user completes the required action
+→ Freepaper resumes detection
+→ Authenticated article-page PDF verification and Blob download
+→ If page-context saving is blocked, wait for the viewer download event
+→ Task result and count update
+```
 
-### Batch download
+If no sufficiently clear PDF action exists, the page assistant asks the user to take over. CAPTCHAs, publisher-account sign-in, and institutional authentication must be completed by the user.
 
-Open **Batch download**, paste DOI/URL entries, or import a CSV/TXT file. Freepaper merges duplicate entries that point to the same paper and processes the queue one item at a time.
+A shared state machine now distinguishes article pages, clear PDF actions, institutional authentication, publisher-account login, human verification, purchase/access-denied pages, PDF viewers, and browser downloads. Publisher adapters only identify site-specific pages and PDF controls.
 
-### Manual verification
+### Example CSV
 
-When a publisher requires a CAPTCHA, institutional sign-in, or manual confirmation, Freepaper displays a verification assistant. Complete the website's requested action yourself, then click **Continue**.
-
-### Language
-
-Open **Settings → Language** and choose:
-
-- **Auto**: follow the browser UI language;
-- **简体中文**;
-- **English**.
-
-The in-app language setting controls the popup, task monitor, and page verification assistant. The extension name and short description shown by the browser follow the browser locale through Chromium `_locales`.
+The onboarding and quick-start panels include an embedded sample that can be downloaded or copied. CSV, TSV, and TXT are supported; XLSX is not imported directly.
 
 ## Privacy
 
-Freepaper does not upload paper lists, browsing history, sign-in information, or download history to a developer-operated server. It contains no advertising, analytics, or tracking SDK. The browser directly accesses DOI services, publisher pages, and PDF URLs requested by the user.
-
-See the bilingual [privacy policy](privacy-policy.md).
+Freepaper does not upload paper lists, browsing history, authentication information, or download history to a developer-operated server. It contains no analytics, advertising, or tracking SDK. See [privacy-policy.md](privacy-policy.md).
 
 ## Permissions
 
 | Permission | Purpose |
 |---|---|
-| `downloads` | Start PDF downloads and track downloads created by Freepaper |
-| `storage` | Save local settings, queues, recovery state, and Freepaper download history |
-| `activeTab` | Scan the current tab after an explicit user action |
-| `tabs` | Open paper pages, bind task tabs, and return to the active task |
-| `scripting` | Detect PDF links and page state on paper pages |
-| `webNavigation` | Follow DOI redirects, verification navigation, and PDF page transitions |
-| `alarms` | Recover unfinished tasks after the MV3 service worker is suspended |
-| `<all_urls>` | Support DOI and PDF URLs from different academic publishers selected by the user |
+| `downloads` | Start and track Freepaper or explicitly associated PDF downloads |
+| `storage` | Store settings, queues, recovery state, and local history |
+| `activeTab` | Scan the current page after user action |
+| `tabs` | Open and bind paper/task tabs |
+| `scripting` | Detect PDF links, clear PDF actions, and page state |
+| `webNavigation` | Track redirects, verification pages, and PDF transitions |
+| `alarms` | Recover unfinished work after service-worker suspension |
+| `<all_urls>` | Support user-selected DOI, publisher, and PDF domains |
 
-## Repository structure
-
-```text
-.
-├── _locales/              # Manifest localization: English and Simplified Chinese
-├── icons/                 # Runtime extension icons
-├── store-assets/          # Store logo and promotional tile
-├── docs/store/            # Edge and Chrome submission templates
-├── examples/              # Sanitized input examples
-├── background.js
-├── content.js
-├── i18n.js                # User-selectable in-app localization
-├── popup.html
-├── popup.js
-├── task-monitor.html
-├── task-monitor.js
-└── manifest.json
-```
-
-## Development check
-
-The project has no npm runtime dependencies. Install Node.js 20 or later and run:
+## Development and validation
 
 ```bash
-npm run check
+npm run verify
 ```
 
-The check validates JavaScript syntax, manifest resources, locale files, version consistency, legacy backend markers, and files that must not enter the public repository.
-
-
+- Code audit and fix notes: [`docs/CODE_AUDIT_v2.0.2_ZH.md`](docs/CODE_AUDIT_v2.0.2_ZH.md)
+- Validation plan: [`docs/VALIDATION_v2.0.2_ZH.md`](docs/VALIDATION_v2.0.2_ZH.md)
+- Regression CSV: [`examples/regression-page-context-v2.0.2.csv`](examples/regression-page-context-v2.0.2.csv)
+- Store documents: [`docs/store/`](docs/store/)
 
 ## Known limitations
 
 - Publishers may require institutional credentials, VPN access, or manual verification;
-- Freepaper cannot download content the user is not authorized to access;
-- Publisher page structures change and may require future adapter updates;
-- The browser download API can save only under the configured browser Downloads directory.
+- Freepaper cannot retrieve content the user is not authorized to access;
+- Publisher page structures can change;
+- The downloads API saves under the browser Downloads directory;
+- A browser download that has already completed before Freepaper can identify it cannot be moved afterward. v2.0.2 enters the task-scoped waiting state before page-context downloads are triggered, so `onDeterminingFilename` can place them in the Freepaper subfolder.
+- Built-in PDF viewer toolbars cannot always be controlled by extensions. If a publisher also blocks page-context fetching, Freepaper stops automatic re-requests and waits for the user to use the viewer download button rather than saving an HTML challenge page.
 
-## Contributing and security
+## Contributing, security, license, and trademarks
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Report security issues privately as described in [SECURITY.md](SECURITY.md), not in a public issue.
-
-## License and trademarks
-
-Source code is licensed under the [Mozilla Public License 2.0](LICENSE). Use of the Freepaper name and icon is governed separately by [TRADEMARKS.md](TRADEMARKS.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing. Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Code is licensed under [MPL-2.0](LICENSE); trademark rules are in [TRADEMARKS.md](TRADEMARKS.md).

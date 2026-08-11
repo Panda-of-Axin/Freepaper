@@ -40,6 +40,7 @@
       <div class="label" data-i18n="currentPaperStatus">Current paper status</div>
       <div class="value" id="sdMessage" data-i18n="readingTasks">Reading task…</div>
       <div class="doi" id="sdDoi"></div>
+      <div class="current" id="stageInstruction" style="display:none"></div>
       <div class="actions">
         <button class="primary" id="btnContinue" data-i18n="continueChecking">I’m done, continue checking</button>
         <button class="focus" id="btnFocus" data-i18n="taskPage">Go to task page</button>
@@ -58,6 +59,7 @@
     </section>
 
     <div class="muted" data-i18n="monitorHint">This is an auxiliary monitor. Closing it does not stop the background task.</div>
+    <button class="focus" id="btnHelp" style="width:100%;border:0;border-radius:9px;padding:9px;margin-top:10px;font-size:11px;font-weight:700;cursor:pointer;" data-i18n="openGuide">Open usage guide</button>
   </main>
   <script src="i18n.js"></script>
   <script src="task-monitor.js"></script>

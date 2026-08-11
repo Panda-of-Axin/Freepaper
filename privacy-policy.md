@@ -32,9 +32,9 @@ Freepaper stores data required to perform the user's request in browser extensio
 - active queues, failure state, and recovery state;
 - DOI or URL entries explicitly imported by the user;
 - the current assisted-verification task;
-- recent downloads created and registered by Freepaper.
+- recent downloads created by Freepaper, plus a PDF download that the browser starts from the active task page while Freepaper is explicitly waiting for the user to complete verification or a manual PDF action.
 
-Recent downloads does not read or display unrelated downloads created manually or by another extension.
+While one assisted task is waiting, Freepaper observes newly created browser downloads only long enough to determine whether a PDF clearly matches that task by publisher/source or filename/title. Matching task downloads are registered so the task can finish; unrelated downloads are ignored and are not displayed.
 
 ### Page content and browsing activity
 
@@ -48,7 +48,7 @@ Freepaper does not read, export, or upload passwords or cookies. When the browse
 
 | Permission | Purpose |
 |---|---|
-| `downloads` | Start PDF downloads and track downloads created by Freepaper |
+| `downloads` | Start and track Freepaper downloads; while one assisted task is waiting, associate a new PDF download only when its publisher/source or filename/title clearly matches the active task |
 | `storage` | Save local settings, queues, recovery state, and Freepaper download history |
 | `activeTab` | Scan the active tab after an explicit user action |
 | `tabs` | Open paper pages, bind task tabs, and return to the current task |
@@ -103,9 +103,9 @@ Freepaper 会在浏览器本地保存完成用户请求所必需的数据，例�
 - 当前批量任务、失败状态和恢复信息；
 - 用户主动导入的 DOI 或 URL；
 - 人工验证流程的当前任务状态；
-- 由 Freepaper 发起并通过下载 ID 登记的近期下载记录。
+- 由 Freepaper 发起的下载，以及在当前任务明确等待用户完成验证或手动 PDF 操作期间，由任务页面触发并与当前论文明确匹配的 PDF 下载记录。
 
-“最近下载”不会读取或展示用户手动操作或其他扩展创建的无关浏览器下载记录。
+当且仅当存在一个正在等待人工操作的任务时，Freepaper 会短暂观察新建下载事件，并根据出版商/来源或文件名/论文标题判断 PDF 是否属于当前任务。只有明确匹配的任务下载才会被登记并用于结束任务；无关下载会被忽略，也不会显示。
 
 ### 页面内容和浏览活动
 
@@ -119,7 +119,7 @@ Freepaper 不读取、导出或上传用户的密码和 Cookie。浏览器访问
 
 | 权限 | 用途 |
 |---|---|
-| `downloads` | 发起 PDF 下载并跟踪由 Freepaper 创建的下载任务 |
+| `downloads` | 发起 PDF 下载；跟踪由 Freepaper 创建的下载；并在人工验证任务期间识别由当前任务页面触发、且与当前论文明确匹配的 PDF 下载，以记录任务完成 |
 | `storage` | 在本地保存设置、队列、恢复状态和 Freepaper 下载历史 |
 | `activeTab` | 用户主动操作后检测当前页面 |
 | `tabs` | 打开论文页面、绑定任务标签页并回到当前任务 |

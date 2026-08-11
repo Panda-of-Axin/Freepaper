@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Freepaper Guide</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#172033;background:#eff6ff}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0,#dbeafe,transparent 36%),linear-gradient(135deg,#eff6ff,#f8fafc 55%,#ecfeff)}
+    .shell{max-width:980px;margin:0 auto;padding:32px 20px 48px}.hero{display:flex;align-items:center;gap:18px;margin-bottom:22px}.hero img{width:74px;height:74px;border-radius:20px;box-shadow:0 16px 36px rgba(37,99,235,.22)}
+    h1{margin:0;font-size:34px;color:#0f172a}.sub{margin-top:6px;color:#475569;font-size:15px;line-height:1.6}.badge{display:inline-block;margin-top:9px;padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700}
+    .progress{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:18px 0}.dot{height:6px;border-radius:999px;background:#cbd5e1}.dot.active{background:#2563eb}
+    .card{background:rgba(255,255,255,.94);border:1px solid rgba(148,163,184,.28);border-radius:22px;padding:28px;box-shadow:0 20px 60px rgba(15,23,42,.10)}
+    .slide{display:none}.slide.active{display:block}.show-all .slide{display:block;border-bottom:1px solid #e2e8f0;padding-bottom:26px;margin-bottom:26px}.show-all .slide:last-of-type{border-bottom:0;margin-bottom:0;padding-bottom:0}.slide h2{margin:0 0 12px;font-size:24px}.slide p,.slide li{font-size:15px;line-height:1.75;color:#475569}.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0}.step{padding:10px 13px;border-radius:11px;background:#eff6ff;color:#1e40af;font-weight:700}.arrow{color:#94a3b8}
+    .notice{padding:14px 16px;border-left:4px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#78350f;line-height:1.65}.good{border-left-color:#10b981;background:#ecfdf5;color:#065f46}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.mini{padding:16px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0}.mini h3{margin:0 0 8px;font-size:15px}.mini p{margin:0;font-size:13px}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;margin-top:22px}.left,.right{display:flex;gap:10px;flex-wrap:wrap}button{border:0;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:750;cursor:pointer}.primary{background:#2563eb;color:#fff}.secondary{background:#e2e8f0;color:#1e293b}.outline{background:#fff;color:#1d4ed8;border:1px solid #93c5fd}.danger{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}
+    .exampleBox{margin-top:14px;padding:14px;border-radius:12px;background:#f8fafc;border:1px solid #dbeafe}.exampleBox pre{margin:8px 0 0;padding:12px;border-radius:9px;background:#0f172a;color:#e2e8f0;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow:auto}.exampleActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}.diag{margin-top:16px;padding:14px;border-radius:12px;background:#0f172a;color:#cbd5e1;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;word-break:break-word;display:none;max-height:280px;overflow:auto}.confirm{display:flex;align-items:flex-start;gap:9px;margin-top:18px;padding:12px;background:#f8fafc;border-radius:10px;color:#334155}.confirm input{margin-top:3px;width:17px;height:17px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.hero{align-items:flex-start}h1{font-size:28px}.card{padding:20px}.progress{gap:5px}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="hero"><img src="icons/icon128.png" alt="Freepaper"><div><h1>Freepaper</h1><div class="sub" id="heroSubtitle">学术文献下载流程自动化扩展</div><span class="badge">v2.0.2 · 页面上下文下载与 HTM 防护</span></div></header>
+  <div class="progress" id="progress"></div>
+  <section class="card">
+    <article class="slide" data-index="0"><h2>欢迎使用 Freepaper</h2><p>导入 DOI 或论文链接后，Freepaper 会帮助你打开论文页面、识别 PDF、管理批量任务、处理重复文献并汇总结果。</p><div class="notice good"><strong>合规边界：</strong>Freepaper 只在用户已有合法访问权限的前提下工作，不绕过付费墙、机构权限或安全验证。</div></article>
+    <article class="slide" data-index="1"><h2>基本使用流程</h2><div class="flow"><span class="step">准备 DOI / URL</span><span class="arrow">→</span><span class="step">导入 CSV / TSV / TXT</span><span class="arrow">→</span><span class="step">检查标题</span><span class="arrow">→</span><span class="step">启动任务</span><span class="arrow">→</span><span class="step">下载与汇总</span></div><p>当前不支持直接导入 XLSX。可先在 Excel 中另存为 UTF-8 CSV。</p><div class="exampleBox"><strong>内嵌示例格式</strong><pre id="exampleCsvPreview">doi,url,title
+10.48550/arXiv.2010.08895,https://arxiv.org/pdf/2010.08895,Fourier Neural Operator
+,https://ieeexplore.ieee.org/document/9282004,Physics-Informed Neural Networks for Power Systems</pre><div class="exampleActions"><button class="outline" id="btnExample">下载示例 CSV</button><button class="outline" id="btnCopyExample">复制示例内容</button></div></div></article>
+    <article class="slide" data-index="2"><h2>验证可能出现不止一次</h2><div class="flow"><span class="step">论文详情页</span><span class="arrow">→</span><span class="step">自动打开明确 PDF 入口</span><span class="arrow">→</span><span class="step">验证/登录</span><span class="arrow">→</span><span class="step">再次恢复 PDF 流程</span><span class="arrow">→</span><span class="step">自动保存到指定文件夹</span></div><div class="notice"><strong>重要：</strong>Freepaper 只会对明确识别出的 PDF 链接或按钮自动尝试一次。出现验证码、登录或机构认证时会暂停，由用户本人完成；验证结束后程序继续检测，必要时再恢复 PDF 流程。</div><p>程序不会自动操作验证码，也不会模拟真实鼠标。页面助手会分别提示“机构账号认证”“出版商账号登录”“人机验证”“购买/无权限”或“等待下载”；只有无法确认 PDF 入口时才请求用户接管。</p></article>
+    <article class="slide" data-index="3"><h2>为什么 Freepaper 这样设计</h2><ul><li><strong>保持原始输入顺序：</strong>不会把同一数据库的文献集中到一起，避免短时间内对同一站点形成更密集的连续访问。</li><li><strong>串行处理：</strong>同一浏览器一次只处理一篇，减少并发页面和重复请求。</li><li><strong>只自动打开明确 PDF 入口：</strong>不盲点广告、购买按钮、图标或静态资源；同一动作不会无限重试。</li><li><strong>验证留给用户：</strong>验证码、机构登录和安全检查不自动化，完成后由程序继续识别和下载。</li><li><strong>真实 PDF 才进入自定义文件夹：</strong>检测到 PDF 查看器后由 Freepaper 发起下载并记录完成，避免手动保存到默认目录后统计遗漏。</li></ul><div class="notice"><strong>使用提醒：</strong>不同数据库可能限制自动化或集中下载。请遵守学校和平台规则，不要用于整卷、整期或系统性获取全文。</div></article>
+    <article class="slide" data-index="4"><h2>认识三个界面</h2><div class="grid"><div class="mini"><h3>扩展主面板</h3><p>导入文件、检查论文、启动任务、设置下载目录和导出结果。</p></div><div class="mini"><h3>下载进程窗</h3><p>持续显示当前论文、整体进度、暂停、跳过和终止按钮。关闭后后台任务仍继续。</p></div><div class="mini"><h3>网页操作助手</h3><p>在需要机构认证、出版商登录、人机验证、权限确认或等待下载时，给出当前步骤的具体提示。</p></div></div><label class="confirm"><input id="understood" type="checkbox"><span>我理解：Freepaper 会自动处理明确的 PDF 入口；账号登录、机构认证和验证码必须由我本人完成，程序会在检测到真实 PDF 或下载完成后继续。</span></label><div class="actions"><div class="left"><button class="outline" id="btnDiagnostic">生成脱敏诊断信息</button><button class="outline" id="btnCopy" style="display:none">复制诊断信息</button></div></div><pre class="diag" id="diagnostic"></pre></article>
+    <div class="actions"><div class="left"><button class="secondary" id="btnPrev">上一步</button></div><div class="right"><button class="outline" id="btnHelpMode">显示全部说明</button><button class="primary" id="btnNext">下一步</button></div></div>
+  </section>
+</main>
+<script src="i18n.js"></script><script src="onboarding.js"></script>
+</body></html>

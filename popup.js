@@ -48,7 +48,7 @@ let batchPapers = [];          // { doi, url, status: 'pending'|'done'|'failed' 
 let isBatchRunning = false;
 let showSettings = false;
 let downloadFolder = 'freepaper';
-let autoOpenTaskMonitorOnChallenge = false;
+let autoOpenTaskMonitorOnChallenge = true;
 let lastBatchUpdatedAt = -1;
 let lastSdUpdatedAt = -1;
 let lastParseStats = {
@@ -56,6 +56,8 @@ let lastParseStats = {
   uniqueTitles: 0, isDiagnosticTable: false,
 };
 let latestTaskSnapshot = { batch: null, sd: null, monitorOpen: false };
+const QUICK_START_KEY = 'freepaper_quick_start_dismissed_v147';
+const EXAMPLE_CSV_TEXT = '\uFEFFdoi,url,title\r\n10.48550/arXiv.2010.08895,https://arxiv.org/pdf/2010.08895,Fourier Neural Operator for Parametric Partial Differential Equations\r\n,https://ieeexplore.ieee.org/document/9282004,Physics-Informed Neural Networks for Power Systems\r\n10.1002/inf2.12028,https://onlinelibrary.wiley.com/doi/full/10.1002/inf2.12028,Machine learning in materials science\r\n';
 
 // =========================================================================
 // Init
@@ -70,7 +72,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadFolder = settings.freepaper_settings.downloadFolder;
     $('downloadFolder').value = downloadFolder;
   }
-  autoOpenTaskMonitorOnChallenge = settings.freepaper_settings?.autoOpenTaskMonitorOnChallenge === true;
+  autoOpenTaskMonitorOnChallenge = settings.freepaper_settings?.autoOpenTaskMonitorOnChallenge !== false;
+  const quickStartState = await chrome.storage.local.get(QUICK_START_KEY);
+  if ($('quickStartCard')) $('quickStartCard').style.display = quickStartState[QUICK_START_KEY] ? 'none' : 'block';
   $('footerText').textContent = t('footerPath', { folder: downloadFolder });
   ensureGlobalTaskControl();
   ensureEnhancedSettingsControl();
@@ -94,6 +98,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkPagePdfs();
   });
   $('btnSettings')?.addEventListener('click', toggleSettings);
+  $('btnHelp')?.addEventListener('click', openHelpPage);
+  $('btnQuickHelp')?.addEventListener('click', openHelpPage);
+  $('btnExampleCsv')?.addEventListener('click', downloadExampleCsv);
+  $('btnCopyExampleCsv')?.addEventListener('click', copyExampleCsv);
+  $('btnDismissQuickStart')?.addEventListener('click', async () => {
+    await chrome.storage.local.set({ [QUICK_START_KEY]: true });
+    if ($('quickStartCard')) $('quickStartCard').style.display = 'none';
+  });
   $('btnSaveSettings')?.addEventListener('click', saveSettings);
   $('btnCancelSettings')?.addEventListener('click', () => setSettingsOpen(false));
   document.addEventListener('keydown', (event) => {
@@ -156,6 +168,52 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(loadRecentDownloads, 2000);
   setInterval(() => void syncPersistentTaskState(false), 1200);
 });
+
+async function openHelpPage() {
+  await chrome.runtime.sendMessage({ command: 'OPEN_HELP' }).catch(() => null);
+}
+
+function saveTextAsFile(text, filename) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+
+async function downloadExampleCsv() {
+  const button = $('btnExampleCsv');
+  if (button) {
+    button.disabled = true;
+    button.textContent = t('preparingDownload');
+  }
+  try {
+    // 扩展页面中的 blob + <a download> 在部分 Edge 版本会显示“无法下载，已阻止”，
+    // 而且该失败不会抛出异常。统一交给后台 downloads API，确保行为可检测。
+    const result = await chrome.runtime.sendMessage({ command: 'DOWNLOAD_EXAMPLE_CSV' }).catch(() => null);
+    if (button) button.textContent = result?.ok ? t('downloadStarted') : t('downloadExampleCsv');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      setTimeout(() => { if (button) button.textContent = t('downloadExampleCsv'); }, 1200);
+    }
+  }
+}
+
+async function copyExampleCsv() {
+  const button = $('btnCopyExampleCsv');
+  await navigator.clipboard.writeText(EXAMPLE_CSV_TEXT.replace(/^\uFEFF/, '')).catch(() => null);
+  if (button) {
+    const original = t('copyExampleCsv');
+    button.textContent = t('copied');
+    setTimeout(() => { if (button) button.textContent = original; }, 1200);
+  }
+}
 
 async function syncPersistentTaskState(force = false) {
   let batch = null;
@@ -289,6 +347,7 @@ function ensureGlobalTaskControl() {
 }
 
 function globalSdMessage(sd) {
+  if (sd?.lastError && GLOBAL_MANUAL_STATUSES.has(sd.status)) return sd.lastError;
   return sd?.status ? sdStatusText(sd.status) : t('taskRunning');
 }
 
@@ -328,7 +387,7 @@ function renderGlobalTaskControl(batch, sd, monitorOpen = false) {
       : globalSdMessage(sd));
 
   const detailParts = [];
-  if (currentPaper) detailParts.push(currentPaper.doi || currentPaper.url || t('unknownPaper'));
+  if (currentPaper) detailParts.push(currentPaper.title || currentPaper.doi || currentPaper.url || t('unknownPaper'));
   else if (sd?.doi) detailParts.push(sd.doi);
   if (currentPaper?.status) detailParts.push(t('statusPrefix', { status: paperStatusText(currentPaper.status) }));
   $('globalTaskCurrent').textContent = detailParts.join(' · ');
@@ -392,38 +451,127 @@ function switchTab(panelName) {
 function DETECT_JS() {
   const out = [];
   const push = (url, text, source) => {
-    if (url && typeof url === 'string') out.push({ url: String(url).trim(), text: String(text||''), source });
+    if (url && typeof url === 'string') out.push({ url: String(url).trim(), text: String(text || ''), source });
+  };
+  const metaContent = (...names) => {
+    for (const name of names) {
+      const selector = `meta[name="${name}"],meta[property="${name}"]`;
+      const value = document.querySelector(selector)?.getAttribute('content')?.trim();
+      if (value) return value;
+    }
+    return '';
+  };
+  const cleanDoi = (value) => {
+    const match = String(value || '').match(/10\.\d{4,9}\/[^\s'"<>]+/i);
+    return match ? match[0].replace(/[\s,;:.]+$/g, '') : '';
+  };
+  const hasBlockedStaticExtension = (value) => {
+    try {
+      const path = new URL(value, location.href).pathname.toLowerCase();
+      // 只检查真正的路径扩展名，避免把 IEEE 的 .jsp 错判成 .js。
+      return /\.(?:css|js|mjs|woff2?|ttf|eot|svg|png|jpe?g|gif|ico|webp|map|json|xml)$/i.test(path);
+    } catch (_) {
+      return false;
+    }
   };
 
   // Meta
   document.querySelectorAll('meta').forEach(meta => {
-    const k = (meta.getAttribute('name')||meta.getAttribute('property')||'').toLowerCase();
+    const k = (meta.getAttribute('name') || meta.getAttribute('property') || '').toLowerCase();
     const c = meta.getAttribute('content');
-    if (c && (k.includes('citation_pdf_url')||k.includes('pdf_url')||k==='pdf_url')) push(c, k, 'meta');
+    if (c && (k.includes('citation_pdf_url') || k.includes('pdf_url') || k === 'pdf_url')) push(c, k, 'meta');
   });
+
   // Links & embeds
   document.querySelectorAll('a[href],link[href],iframe[src],embed[src],object[data]').forEach(el => {
-    const url = el.getAttribute('href')||el.getAttribute('src')||el.getAttribute('data');
-    const text = (el.innerText||el.getAttribute('aria-label')||el.getAttribute('title')||'').trim();
+    const url = el.getAttribute('href') || el.getAttribute('src') || el.getAttribute('data');
+    const text = (el.innerText || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
     if (url && !url.startsWith('javascript:') && !url.startsWith('#') && url !== location.href) push(url, text, el.tagName);
   });
+
   // PDF.js
-  document.querySelectorAll('script').forEach(s => {
-    const t = s.textContent||s.innerText||'';
-    const m = t.match(/PDFViewerApplicationOptions\s*\.\s*set\s*\(\s*['\"]defaultUrl['\"]\s*,\s*['\"]([^'\"]+)['\"]/i);
-    if (m) push(m[1], 'pdfjs-defaultUrl', 'script');
+  document.querySelectorAll('script').forEach(script => {
+    const text = script.textContent || script.innerText || '';
+    const match = text.match(/PDFViewerApplicationOptions\s*\.\s*set\s*\(\s*['"]defaultUrl['"]\s*,\s*['"]([^'"]+)['"]/i);
+    if (match) push(match[1], 'pdfjs-defaultUrl', 'script');
   });
-  // IEEE stamp.jsp
-  if (location.hostname.includes('ieee.org') && location.pathname.includes('stamp.jsp')) {
-    const p = new URLSearchParams(location.search);
-    const ar = p.get('arnumber');
-    if (ar) push(`https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=${ar}`, 'IEEE PDF', 'ieee-construct');
+
+  const host = location.hostname.toLowerCase();
+  const canonicalDoi = cleanDoi(
+    metaContent('citation_doi', 'dc.identifier', 'DC.Identifier', 'dc.Identifier') || location.href
+  );
+
+  // IEEE：优先使用页面真实 citation_pdf_url / PDF 链接，再根据 arnumber 构造官方 PDF 端点。
+  if (host.includes('ieee.org')) {
+    const params = new URLSearchParams(location.search);
+    const arnumber = params.get('arnumber') ||
+      location.pathname.match(/\/document\/(\d+)/i)?.[1] ||
+      metaContent('citation_id', 'arnumber').match(/\d+/)?.[0] || '';
+    if (arnumber) {
+      push(`https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=${arnumber}`, 'IEEE PDF', 'ieee-construct');
+    }
+    document.querySelectorAll('a[href*="stampPDF/getPDF.jsp"],a[href*="/stamp/stamp.jsp"]').forEach(el => {
+      const raw = el.getAttribute('href') || '';
+      push(raw.replace('/stamp/stamp.jsp', '/stampPDF/getPDF.jsp'), 'IEEE PDF', 'ieee-link');
+    });
   }
-  // pdf.sciencedirectassets.com：当前页面 URL 就是 PDF
-  if (location.hostname === 'pdf.sciencedirectassets.com') {
+
+  // Wiley：详情页本身是 HTML，构造 /doi/pdfdirect/、/doi/epdf/ 或 /doi/pdf/ 的真实 PDF 候选。
+  if (host.endsWith('onlinelibrary.wiley.com') && canonicalDoi) {
+    push(`https://onlinelibrary.wiley.com/doi/pdfdirect/${canonicalDoi}`, 'Wiley PDF direct', 'wiley-construct');
+    push(`https://onlinelibrary.wiley.com/doi/pdf/${canonicalDoi}`, 'Wiley PDF', 'wiley-construct');
+    push(`https://onlinelibrary.wiley.com/doi/epdf/${canonicalDoi}`, 'Wiley ePDF', 'wiley-construct');
+  }
+
+  // CNKI：仅提取页面公开的 PDF/全文下载入口，并在同一官方端点上尝试 PDF 模式。
+  const cnkiLikePage = host === 'cnki.net' || host.endsWith('.cnki.net') ||
+    location.pathname.toLowerCase().includes('/kcms/') ||
+    location.pathname.toLowerCase().includes('/kcms2/') ||
+    location.pathname.toLowerCase().includes('/webpublication/') ||
+    location.pathname.toLowerCase().includes('/portal/journal/portal/client/paper/');
+  if (cnkiLikePage) {
+    const addEmbeddedUrls = (raw, label = '', source = '') => {
+      const value = String(raw || '').replace(/&amp;/gi, '&');
+      if (!value) return;
+      if (!/^javascript:/i.test(value)) push(value, label, source);
+      const matches = value.match(/(?:https?:\/\/[^'"\s)<>]+|\/(?:[^'"\s)<>]*\/)?(?:kcms\/download\.aspx|download\.aspx|kbDownload\.aspx|paper\/preview)[^'"\s)<>]*)/ig) || [];
+      matches.forEach((match) => push(match, label, `${source}-embedded`));
+    };
+    document.querySelectorAll('a,button,[onclick],[data-url],[data-href],[data-download],[data-download-url]').forEach((el) => {
+      const label = (el.innerText || el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
+      for (const attr of ['href', 'onclick', 'data-url', 'data-href', 'data-download', 'data-download-url']) {
+        const value = el.getAttribute(attr);
+        if (value) addEmbeddedUrls(value, label, `cnki-${attr}`);
+      }
+    });
+    for (const item of [...out]) {
+      try {
+        const candidate = new URL(item.url, location.href);
+        const path = candidate.pathname.toLowerCase();
+        const label = `${item.text} ${item.source}`.toLowerCase();
+        const isDownloadEndpoint = /(?:^|\/)(?:kcms\/)?download\.aspx$/i.test(path) ||
+          /(?:^|\/)kbdownload\.aspx$/i.test(path);
+        if (!isDownloadEndpoint) continue;
+        push(candidate.href, item.text || 'CNKI download', 'cnki-download-link');
+        if (/download\.aspx$/i.test(path) &&
+            (label.includes('pdf') || label.includes('caj') ||
+             candidate.searchParams.has('filename') || candidate.searchParams.has('fileName'))) {
+          const pdfCandidate = new URL(candidate.href);
+          pdfCandidate.searchParams.set('dflag', 'pdfdown');
+          push(pdfCandidate.href, 'CNKI PDF', 'cnki-pdf-variant');
+        }
+      } catch (_) {}
+    }
+  }
+
+  // ScienceDirect 详情页优先直接读取 citation_pdf_url、pdfft 和 PDF 资产链接。
+  if (host === 'pdf.sciencedirectassets.com') {
     push(location.href, 'ScienceDirect PDF', 'current-url');
   }
-  // <embed type="application/pdf"> —— ScienceDirect 等用 embed 加载 PDF
+  document.querySelectorAll('a[href*="/pdfft"],a[href*="pdf.sciencedirectassets.com"],link[type="application/pdf"]').forEach(el => {
+    push(el.getAttribute('href') || '', 'ScienceDirect PDF', 'science-direct-link');
+  });
+
   document.querySelectorAll('embed[type="application/pdf"]').forEach(el => {
     if (el.src) push(el.src, 'PDF embed', 'embed');
   });
@@ -431,40 +579,42 @@ function DETECT_JS() {
     if (el.data) push(el.data, 'PDF object', 'object');
   });
 
-  // Score and rank
   function score(url, text, source) {
-    const l = `${url} ${text} ${source}`.toLowerCase();
-    let s = 0;
+    const lower = `${url} ${text} ${source}`.toLowerCase();
+    if (hasBlockedStaticExtension(url)) return -1000;
+    let value = 0;
 
-    // 绝对排除：非文档类型的静态资源
-    for (const ext of ['.css','.js','.woff','.ttf','.svg','.png','.jpg','.jpeg','.gif','.ico','.webp','.map','.json','.xml']) {
-      if (l.includes(ext) && !l.includes('.pdf')) return -1000;
-    }
+    if (lower.includes('stamppdf/getpdf.jsp')) value += 130;
+    if (lower.includes('pdf.sciencedirectassets.com')) value += 130;
+    if (lower.includes('/pdfft')) value += 120;
+    if (lower.includes('/doi/pdfdirect/')) value += 115;
+    if (lower.includes('/doi/epdf/')) value += 110;
+    if (lower.includes('/doi/pdf/')) value += 100;
+    if (lower.includes('dflag=pdfdown')) value += 170;
+    if (lower.includes('/kcms/download.aspx') || /\/download\.aspx(?:[?#]|$)/i.test(url)) value += 95;
+    if (lower.includes('kbdownload.aspx')) value += 105;
+    if (lower.includes('/paper/preview') && lower.includes('.pdf')) value += 115;
+    if (lower.includes('pdf下载') || lower.includes('下载pdf') || lower.includes('pdf download')) value += 70;
+    if (lower.includes('/articlepdf/')) value += 85;
+    if (/\.pdf(?:$|[?#])/i.test(url)) value += 80;
+    if (lower.includes('download=true')) value += 60;
+    if (lower.includes('download=pdf') || lower.includes('type=pdf')) value += 65;
+    if (lower.includes('/pdf') || lower.includes('pdf/')) value += 35;
+    if (lower.includes('download')) value += 20;
+    if (lower.includes('citation_pdf_url')) value += 60;
+    if (lower.includes('fulltext') || lower.includes('full-text')) value += 15;
 
-    // PDF 直接链接
-    if (l.includes('stamppdf/getpdf.jsp')) s += 90;
-    if (l.includes('stamp/stamp.jsp')) s += 65;
-    if (l.includes('pdf.sciencedirectassets.com')) s += 85;
-    if (l.includes('/doi/pdfdirect/')) s += 80;
-    if (l.includes('/doi/pdf/')) s += 75;
-    if (l.includes('/articlepdf/')) s += 70;
-    if (l.endsWith('.pdf')) s += 60;
-    if (l.includes('.pdf?')||l.includes('&pdf')) s += 45;
-    if (l.includes('download=true')) s += 50;   // Wiley/ACS 等
-    if (l.includes('download=pdf')||l.includes('type=pdf')) s += 55;
-    if (l.includes('/pdf')||l.includes('pdf/')) s += 30;
-    if (l.includes('download')) s += 20;
-    if (l.includes('citation_pdf_url')) s += 50;
-    if (l.includes('fulltext')||l.includes('full-text')) s += 15;
-    // 不认识的静态资源
-    for (const ext of ['.css','.js','.woff2','.woff','.ttf','.eot','.svg','.png','.jpg','.jpeg','.gif','.ico','.webp','.map','.json','.xml','.html','.htm']) {
-      if (l.endsWith(ext) || l.includes(ext+'?')) s -= 100;
+    // 已知 HTML 详情页不能直接交给 PDF 验证。
+    if (lower.includes('/doi/full/') || lower.includes('/doi/abs/') || lower.includes('/abstract') ||
+        lower.includes('/kcms2/article/abstract') || lower.includes('/kcms/detail/detail.aspx')) value -= 120;
+    if (lower.includes('caj') && !lower.includes('dflag=pdfdown')) value -= 80;
+    const pathname = (() => { try { return new URL(url).pathname.toLowerCase(); } catch (_) { return ''; } })();
+    if (/\.(?:html?|xhtml)$/i.test(pathname)) value -= 120;
+
+    for (const term of ['privacy','cookie','terms','supplementary','suppl','cover-image','s0001','s0002','.ris','.bib','.bibtex','.enw','.csv','export-citation','citation-export','download-citation','cite-this','get-rights-and-content','recommended','related-articles','pdf-renderer']) {
+      if (lower.includes(term)) value -= 50;
     }
-    // Penalties for non-PDF content
-    for (const n of ['privacy','cookie','terms','supplementary','suppl','cover-image','s0001','s0002','.ris','.bib','.bibtex','.enw','.csv','export-citation','citation-export','download-citation','cite-this','get-rights-and-content','recommended','related-articles','pdf-renderer']) {
-      if (l.includes(n)) s -= 50;
-    }
-    return s;
+    return value;
   }
 
   const seen = new Set();
@@ -472,18 +622,24 @@ function DETECT_JS() {
   for (const item of out) {
     let url = item.url.trim();
     if (!url) continue;
-    try { url = new URL(url, location.href).href; } catch(_) { continue; }
-    const s = score(url, item.text, item.source);
-    if (s >= 30 && !seen.has(url)) {
+    try { url = new URL(url, location.href).href; } catch (_) { continue; }
+    const value = score(url, item.text, item.source);
+    if (value >= 30 && !seen.has(url)) {
       seen.add(url);
-      candidates.push({ url, score: s, text: item.text, source: item.source });
+      candidates.push({ url, score: value, text: item.text, source: item.source });
     }
   }
-  candidates.sort((a,b) => b.score - a.score);
+  candidates.sort((a, b) => b.score - a.score);
+
+  const cnkiTitle = cnkiLikePage
+    ? (document.querySelector('h1, .wx-tit h1, .brief h1, .title h1, .article-title')?.textContent || '').trim()
+    : '';
+  const title = metaContent('citation_title', 'dc.title', 'DC.Title', 'og:title', 'twitter:title') || cnkiTitle || document.title;
   return {
     url: location.href,
-    title: document.title,
-    candidates: candidates.slice(0, 5).map(c => c.url),
+    title,
+    doi: canonicalDoi,
+    candidates: candidates.slice(0, 10).map(item => item.url),
   };
 }
 
@@ -756,6 +912,15 @@ function canonicalDocumentKey(doi, urls) {
         const arnumber = url.searchParams.get('arnumber') || url.pathname.match(/document\/(\d+)/i)?.[1];
         if (arnumber) return `ieee:${arnumber}`;
       }
+      const path = url.pathname.toLowerCase();
+      const cnkiLike = host === 'cnki.net' || host.endsWith('.cnki.net') || path.includes('/kcms/') || path.includes('/kcms2/');
+      if (cnkiLike) {
+        const filename = url.searchParams.get('filename') || url.searchParams.get('fileName') || url.searchParams.get('fn') || '';
+        const db = url.searchParams.get('dbcode') || url.searchParams.get('dbname') || url.searchParams.get('dbName') || '';
+        if (filename) return `cnki:${String(db).toLowerCase()}:${String(filename).toLowerCase()}`;
+        const filePath = url.searchParams.get('filePath') || url.searchParams.get('filepath') || '';
+        if (filePath) return `cnki-file:${String(filePath).toLowerCase()}`;
+      }
     } catch (_) {}
   }
   return urls?.[0] ? `url:${urls[0].toLowerCase()}` : '';
@@ -772,6 +937,12 @@ function scoreInputUrl(url) {
     if (host.endsWith('sciencedirect.com') && /\/science\/article\/pii\//.test(path) &&
         !path.includes('/abs/') && !path.includes('/pdfft')) return 185;
     if (host === 'doi.org') return 160;
+    const cnkiLike = host === 'cnki.net' || host.endsWith('.cnki.net') || path.includes('/kcms/') || path.includes('/kcms2/');
+    if (cnkiLike) {
+      if (/\/kcms2?\/article\/abstract/i.test(path) || /\/kcms\/detail\/detail\.aspx/i.test(path)) return 185;
+      if (full.includes('dflag=pdfdown') || full.includes('kbdownload.aspx') || full.includes('filepath=') && full.includes('.pdf')) return 180;
+      return 140;
+    }
     if (host.endsWith('sciencedirect.com') && path.includes('/pdfft')) return 145;
     if (host.endsWith('sciencedirect.com') && path.includes('/abs/')) return 130;
     if (path.endsWith('.pdf') || full.includes('download=pdf')) return 175;
@@ -907,6 +1078,14 @@ function parsePaperList(text) {
   return papers;
 }
 
+function paperDisplayName(paper) {
+  return String(paper?.title || paper?.doi || paper?.url || t('unknownPaper')).trim();
+}
+
+function paperDisplayTooltip(paper) {
+  return [paper?.title, paper?.doi, paper?.url].filter(Boolean).join('\n') || t('unknownPaper');
+}
+
 function renderBatchList() {
   const list = $('paperList');
   list.replaceChildren();
@@ -916,8 +1095,8 @@ function renderBatchList() {
   batchPapers.forEach((paper, index) => {
     const row = createElement('div', { className: 'paper-item' });
     row.appendChild(createElement('span', { className: 'idx', text: index + 1 }));
-    const identifier = paper.doi || paper.url || t('unknownPaper');
-    row.appendChild(createElement('span', { className: 'doi', text: identifier, title: identifier }));
+    const identifier = paperDisplayName(paper);
+    row.appendChild(createElement('span', { className: 'doi', text: identifier, title: paperDisplayTooltip(paper) }));
 
     let tag = '';
     let tagClass = '';
@@ -1143,10 +1322,10 @@ function showSummaryTable(statuses) {
       style: `${titleStyle};font-weight:600;margin:6px 0 2px;`,
     }));
     for (const paper of papers) {
-      const identifier = paper.doi || paper.url || t('unknownPaper');
+      const identifier = paperDisplayName(paper);
       container.appendChild(createElement('div', {
         text: identifier,
-        title: identifier,
+        title: paperDisplayTooltip(paper),
         style: `color:${itemColor};padding-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;`,
       }));
     }

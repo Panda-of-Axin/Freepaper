@@ -3,7 +3,7 @@
     "message": "Freepaper"
   },
   "extensionDescription": {
-    "message": "Open-source academic PDF downloader with batch DOI/URL import, deduplication, subfolders, task recovery, and assisted verification."
+    "message": "Open-source academic PDF downloader with batch tasks, guided PDF actions, assisted verification, custom folders, and reliable download tracking."
   },
   "extensionActionTitle": {
     "message": "Freepaper — academic PDF downloader"

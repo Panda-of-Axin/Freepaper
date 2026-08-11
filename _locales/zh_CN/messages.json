@@ -3,7 +3,7 @@
     "message": "Freepaper"
   },
   "extensionDescription": {
-    "message": "开源学术论文 PDF 下载扩展，支持批量 DOI/URL、去重、子文件夹、任务恢复和人工验证接管。"
+    "message": "开源学术论文 PDF 下载扩展，支持批量任务、明确 PDF 自动引导、人工验证接管、自定义文件夹和可靠下载记录。"
   },
   "extensionActionTitle": {
     "message": "Freepaper — 学术论文 PDF 下载工具"
