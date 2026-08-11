@@ -25,7 +25,7 @@ Freepaper 不绕过付费墙、机构权限、验证码或网站安全措施，�
 
 ## Website URL
 
-`https://github.com/Panda-of-Axin/freepaper`
+`https://github.com/<YOUR_GITHUB_USERNAME>/freepaper`
 
 ## Privacy policy URL
 

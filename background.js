@@ -544,6 +544,28 @@ async function focusTaskTab() {
   }
 }
 
+async function syncBatchPaperWaitingState(task) {
+  if (!task?.batchJobId || !Number.isInteger(task.batchIndex) || SD_TERMINAL_STATUSES.has(task.status)) return;
+  const batch = await loadBatchState().catch(() => null);
+  if (!batch || batch.jobId !== task.batchJobId || !batch.running) return;
+  const paper = batch.papers?.[task.batchIndex];
+  if (!paper) return;
+
+  let paperStatus = 'downloading';
+  if (task.status === 'ACCESS_DENIED' && ['ACCOUNT_AUTH', 'INSTITUTION_AUTH'].includes(task.stage)) {
+    paperStatus = 'waiting_login';
+  } else if (['WAITING_CHALLENGE_1', 'WAITING_CHALLENGE_2', 'WAITING_MANUAL_PDF', 'WAITING_BROWSER_DOWNLOAD', 'ACCESS_DENIED'].includes(task.status)) {
+    paperStatus = 'waiting_user';
+  }
+
+  paper.status = paperStatus;
+  paper.error = paperStatus.startsWith('waiting_') ? sdStatusMessage(task) : '';
+  batch.activeIndex = task.batchIndex;
+  batch.activeTabId = Number.isInteger(task.activeTabId) ? task.activeTabId : batch.activeTabId;
+  batch.current = Math.max(Number(batch.current || 0), task.batchIndex + 1);
+  await saveBatchState(batch);
+}
+
 async function saveSdTask(task) {
   if (!task) {
     await chrome.storage.local.remove([SD_STORAGE_KEY, 'sd_notification']);
@@ -568,6 +590,9 @@ async function saveSdTask(task) {
       timestamp: task.updatedAt,
     },
   });
+  // 将人工验证/登录等待同步到批量状态。这样“需要登录”不会被当作失败，
+  // 批次保持 running，用户完成登录后可从同一篇继续。
+  await syncBatchPaperWaitingState(task);
   if (Number.isInteger(task.activeTabId)) {
     void pushOverlayState(task.activeTabId);
   }
@@ -662,6 +687,24 @@ function detectSdPageState(providerHint = '') {
   const looksLikeAuthForm = Boolean(document.querySelector(
     'input[type="password"],form[action*="login" i],form[action*="signin" i],form[action*="auth" i],a[href*="institution" i],a[href*="shibboleth" i],a[href*="openathens" i]'
   ));
+  const isVisibleElement = (element) => {
+    if (!element) return false;
+    const rect = element.getBoundingClientRect?.();
+    const style = typeof getComputedStyle === 'function' ? getComputedStyle(element) : null;
+    return Boolean(rect && rect.width > 2 && rect.height > 2 &&
+      style?.display !== 'none' && style?.visibility !== 'hidden' && style?.opacity !== '0');
+  };
+  const visiblePasswordInput = [...document.querySelectorAll('input[type="password"]')].some(isVisibleElement);
+  const visibleAuthIframe = [...document.querySelectorAll('iframe[src]')].some((frame) => {
+    const src = String(frame.src || frame.getAttribute?.('src') || '').toLowerCase();
+    return isVisibleElement(frame) && /(?:login|signin|passport|account|auth)/i.test(src);
+  });
+  const visibleAuthDialog = [...document.querySelectorAll('[role="dialog"],dialog,.modal,.login-modal,.login-dialog,.login-box')].some((dialog) => {
+    if (!isVisibleElement(dialog)) return false;
+    const text = String(dialog.innerText || dialog.textContent || '').toLowerCase();
+    const hasInput = Boolean(dialog.querySelector?.('input,button,a'));
+    return hasInput && /(?:sign in|log in|login|账号登录|用户登录|手机号登录|密码登录|登录)/i.test(text);
+  });
   const institutionText = [
     'institutional sign in', 'institutional access', 'access through your institution',
     'sign in through your institution', 'shibboleth', 'openathens', 'single sign-on',
@@ -682,7 +725,8 @@ function detectSdPageState(providerHint = '') {
       host, url, readyState, bodyLength: bodyText.length,
     };
   }
-  if (isExplicitAuthUrl || (authTitle && looksLikeAuthForm)) {
+  if (isExplicitAuthUrl || (authTitle && looksLikeAuthForm) ||
+      (inferredProvider === 'cnki' && (visiblePasswordInput || visibleAuthIframe || visibleAuthDialog))) {
     return {
       type: institutionUrl || institutionText ? 'INSTITUTION_AUTH_REQUIRED' : 'ACCOUNT_AUTH_REQUIRED',
       provider: inferredProvider, title: titleText,
@@ -808,6 +852,23 @@ function getPublisherProvider(value) {
 
 function requiresManualPdfAction(provider) {
   return GUIDED_PUBLISHER_PROVIDERS.has(String(provider || '').toLowerCase());
+}
+
+function shouldUseRecoverablePublisherHandoff({
+  provider = '',
+  pageType = '',
+  pdfCandidateCount = 0,
+  explicitManualState = false,
+  candidateNeedsHandoff = false,
+} = {}) {
+  const normalizedProvider = String(provider || '').toLowerCase();
+  const guided = GUIDED_PUBLISHER_PROVIDERS.has(normalizedProvider);
+  const supported = guided || ['springer', 'taylorfrancis', 'acs', 'rsc'].includes(normalizedProvider);
+  if (explicitManualState || candidateNeedsHandoff) return true;
+  // 对 IEEE/Wiley/ScienceDirect/CNKI，只要已到该出版商页面但自动获取失败，
+  // 就进入可恢复人工接管，而不是把“可能需要登录”直接记为失败并结束批次。
+  if (guided) return true;
+  return supported && (Number(pdfCandidateCount || 0) > 0 || pageType === 'ARTICLE');
 }
 
 function stableTaskArticleKey(task) {
@@ -2362,7 +2423,10 @@ async function loadBatchState() {
 
 function recalculateBatchCounts(state) {
   state.done = state.papers.filter(p => p.status === 'done').length;
-  state.failed = state.papers.filter(p => p.status === 'failed' || p.status === 'needs_login').length;
+  // 登录/验证属于可恢复等待态，不计入失败。needs_login 仅兼容旧任务记录。
+  state.failed = state.papers.filter(p => p.status === 'failed').length;
+  state.waiting = state.papers.filter(p => p.status === 'waiting_user' || p.status === 'waiting_login').length;
+  state.needsLogin = state.papers.filter(p => p.status === 'waiting_login' || p.status === 'needs_login').length;
   state.total = state.papers.length;
   return state;
 }
@@ -2431,6 +2495,157 @@ function normalizeBatchUrl(value) {
   } catch (_) {
     return '';
   }
+}
+
+function isDoiResolverUrl(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    // doi.org 通常使用 30x 自动跳转；部分中文 DOI 会先进入 chndoi.org 的
+    // “多重解析地址选择页面”。两者都只是解析器，绝不能当论文详情页扫描。
+    return host === 'doi.org' || host === 'dx.doi.org' || host === 'chndoi.org' || host === 'www.chndoi.org';
+  } catch (_) {
+    return false;
+  }
+}
+
+function isChnDoiMultipleResolverUrl(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    return (host === 'chndoi.org' || host === 'www.chndoi.org') &&
+      /\/resolution\/handler\/?$/i.test(url.pathname);
+  } catch (_) {
+    return false;
+  }
+}
+
+function rankDoiResolverTarget(value, doi = '') {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (!/^https?:$/.test(url.protocol) || isDoiResolverUrl(url.href)) return -100000;
+
+    let score = 0;
+    // 对 CNKI DOI，多重解析页通常同时给出“境外 / 境内 / 期刊门户”三个入口。
+    // 优先境内 link.cnki.net，让其继续完成正常知网路由；若不存在，再选择
+    // CNKI 期刊门户，最后才使用境外入口。
+    if (host === 'link.cnki.net') score += 1000;
+    else if (host === 'link.oversea.cnki.net') score += 700;
+    else if (host === 'cnki.net' || host.endsWith('.cnki.net')) score += 850;
+    else score += 100;
+
+    const normalizedDoi = normalizeBatchDoi(doi);
+    if (normalizedDoi && decodeURIComponent(url.href).toLowerCase().includes(normalizedDoi)) score += 80;
+    if (/\/portal\/journal\/portal\/client\/paper\//i.test(url.pathname)) score += 40;
+    return score;
+  } catch (_) {
+    return -100000;
+  }
+}
+
+function chooseDoiResolverTarget(values, doi = '') {
+  const urls = (Array.isArray(values) ? values : [])
+    .map(normalizeBatchUrl)
+    .filter((url, index, all) => url && all.indexOf(url) === index);
+  return urls
+    .map((url, index) => ({ url, index, score: rankDoiResolverTarget(url, doi) }))
+    .filter((item) => item.score > -100000)
+    .sort((a, b) => (b.score - a.score) || (a.index - b.index))[0]?.url || '';
+}
+
+async function extractDoiResolverTargets(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId, frameIds: [0] },
+      func: () => {
+        const out = [];
+        for (const anchor of document.querySelectorAll('a[href]')) {
+          try {
+            const url = new URL(anchor.getAttribute('href'), location.href);
+            if (!/^https?:$/.test(url.protocol)) continue;
+            out.push(url.href);
+          } catch (_) {}
+        }
+        return out;
+      },
+    });
+    return Array.isArray(results?.[0]?.result) ? results[0].result : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function waitForBatchDoiResolution(tabId, jobId, timeoutMs = 22000, doi = '') {
+  const deadline = Date.now() + timeoutMs;
+  let lastUrl = '';
+  let stableSince = 0;
+  let lastSeenUrl = '';
+  let resolverChoiceAttemptedFor = '';
+  let resolverChoiceUrl = '';
+
+  while (Date.now() < deadline) {
+    if (!(await isBatchJobRunning(jobId))) return { ok: false, stopped: true, url: lastSeenUrl };
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab) return { ok: false, reason: 'TAB_CLOSED', url: lastSeenUrl };
+
+    // pendingUrl 在重定向/导航刚开始时通常比 tab.url 更早暴露目标地址。
+    const currentUrl = normalizeBatchUrl(tab.pendingUrl || tab.url || '') || tab.pendingUrl || tab.url || '';
+    if (currentUrl) lastSeenUrl = currentUrl;
+
+    if (!currentUrl) {
+      lastUrl = '';
+      stableSince = 0;
+      await sleep(250);
+      continue;
+    }
+
+    if (isChnDoiMultipleResolverUrl(currentUrl)) {
+      // chndoi.org 的多重解析页不会自动 30x；它会列出多个 HURL，让用户选择。
+      // Freepaper 以前把这个已 complete 的中间页误认为最终论文页，900ms 后扫描失败
+      // 并在 finally 中关闭标签页。现在自动选择最合适的真实论文入口再继续等待。
+      if (tab.status === 'complete' && resolverChoiceAttemptedFor !== currentUrl) {
+        resolverChoiceAttemptedFor = currentUrl;
+        const targets = await extractDoiResolverTargets(tabId);
+        const target = chooseDoiResolverTarget(targets, doi);
+        if (target) {
+          resolverChoiceUrl = target;
+          await chrome.tabs.update(tabId, { url: target }).catch(() => null);
+          lastUrl = '';
+          stableSince = 0;
+          await sleep(350);
+          continue;
+        }
+      }
+      lastUrl = currentUrl;
+      stableSince = 0;
+      await sleep(250);
+      continue;
+    }
+
+    if (isDoiResolverUrl(currentUrl)) {
+      lastUrl = currentUrl;
+      stableSince = 0;
+      await sleep(250);
+      continue;
+    }
+
+    if (currentUrl !== lastUrl) {
+      lastUrl = currentUrl;
+      stableSince = Date.now();
+    } else if (!stableSince) {
+      stableSince = Date.now();
+    }
+
+    // DOI 解析器可能先完成中间页面再触发真正跳转，因此要求：
+    // 1) 已离开所有 DOI 解析器；2) 最终 URL 至少稳定一小段时间；3) 页面加载完成。
+    if (tab.status === 'complete' && stableSince && Date.now() - stableSince >= 900) {
+      return { ok: true, url: currentUrl, resolverChoiceUrl };
+    }
+    await sleep(250);
+  }
+
+  return { ok: false, reason: 'DOI_RESOLUTION_TIMEOUT', url: lastSeenUrl, resolverChoiceUrl };
 }
 
 function normalizeBatchArxivId(value) {
@@ -2806,7 +3021,7 @@ async function waitForSdResult(jobId, batchIndex) {
       if (task.status === 'DONE') {
         result = { status: 'done', filename: task.filename || '', fileSize: task.fileSize || 0, title: task.title || '' };
       } else if (task.status === 'STOPPED') {
-        result = { status: 'needs_login', error: task.reason || sdStatusMessage(task) };
+        result = { status: 'failed', error: task.reason || sdStatusMessage(task) };
       } else {
         result = { status: 'failed', error: task.lastError || sdStatusMessage(task) };
       }
@@ -3014,6 +3229,22 @@ async function processBatchPaper(state, paper, index) {
     await saveBatchState(state);
     if (!(await waitForTabReadyForBatch(probeTab.id, jobId, 15000))) return { status: 'stopped' };
 
+    // DOI 是解析器，不是论文页面。Chrome/Edge 有时会短暂把 doi.org 标记为
+    // complete，然后才继续 30x/脚本跳转。旧逻辑会在这个瞬间扫描 doi.org，
+    // 把本应进入 CNKI 登录流程的论文直接记为 failed。
+    if (isDoiResolverUrl(inputUrl)) {
+      const resolution = await waitForBatchDoiResolution(probeTab.id, jobId, 22000, paper.doi || normalizeBatchDoi(inputUrl));
+      if (resolution.stopped) return { status: 'stopped' };
+      if (!resolution.ok) {
+        return {
+          status: 'failed',
+          error: resolution.reason === 'DOI_RESOLUTION_TIMEOUT'
+            ? `DOI 跳转未完成：仍停留在 ${resolution.url || 'doi.org'}。请检查网络或直接提供论文详情页 URL。`
+            : `DOI 跳转失败：${resolution.reason || '未知错误'}`,
+        };
+      }
+    }
+
     const finalTab = await chrome.tabs.get(probeTab.id).catch(() => null);
     const finalUrl = finalTab?.url || inputUrl;
 
@@ -3034,7 +3265,10 @@ async function processBatchPaper(state, paper, index) {
     const effectiveTitle = batchPaperFilenameBase(paper, detectedTitle);
     const pdfUrls = Array.isArray(pageData.candidates) ? pageData.candidates : [];
     const candidateFailures = [];
-    const earlyProvider = getPublisherProvider(finalUrl) || 'generic';
+    // executeScript 返回的 location.href 比刚读取的 tab.url 更接近页面真实最终地址。
+    // DOI 跳转较慢时尤其重要，否则知网页面可能被误当成 generic，从而直接结束任务。
+    const resolvedPageUrl = normalizeBatchUrl(pageData.url) || finalUrl;
+    const earlyProvider = getPublisherProvider(resolvedPageUrl) || getPublisherProvider(finalUrl) || 'generic';
     const guidedPublisherFlow = GUIDED_PUBLISHER_PROVIDERS.has(earlyProvider);
 
     // 对需要验证/登录的主流数据库，不先后台重复请求 PDF 候选；直接交给
@@ -3063,7 +3297,7 @@ async function processBatchPaper(state, paper, index) {
       });
     }
 
-    const pageState = await inspectSdTab(probeTab.id, getPublisherProvider(finalUrl));
+    const pageState = await inspectSdTab(probeTab.id, earlyProvider);
     const explicitManualState = ['CHALLENGE', 'ACCOUNT_AUTH_REQUIRED', 'INSTITUTION_AUTH_REQUIRED', 'DENIED', 'PURCHASE'].includes(pageState?.type);
     const manualFailureReasons = new Set([
       'ROBOT_CHALLENGE', 'AUTH_REQUIRED', 'ACCOUNT_AUTH_REQUIRED', 'INSTITUTION_AUTH_REQUIRED',
@@ -3073,15 +3307,19 @@ async function processBatchPaper(state, paper, index) {
     const candidateNeedsHandoff = candidateFailures.some((item) =>
       manualFailureReasons.has(item.reason) || manualFailureReasons.has(item.workerReason)
     );
-    const specificProvider = getInteractivePublisher(finalUrl) ||
-      candidates.map(getInteractivePublisher).find(Boolean) || '';
-    const provider = specificProvider || getPublisherProvider(finalUrl) || 'generic';
-    const supportedManualSite = specificProvider || ['cnki', 'springer', 'taylorfrancis', 'acs', 'rsc'].includes(provider);
-    const shouldStartManualHandoff = explicitManualState || candidateNeedsHandoff ||
-      (supportedManualSite && (pdfUrls.length > 0 || pageState?.type === 'ARTICLE'));
+    const specificProvider = getInteractivePublisher(resolvedPageUrl) ||
+      getInteractivePublisher(finalUrl) || candidates.map(getInteractivePublisher).find(Boolean) || '';
+    const provider = specificProvider || getPublisherProvider(resolvedPageUrl) || getPublisherProvider(finalUrl) || 'generic';
+    const shouldStartManualHandoff = shouldUseRecoverablePublisherHandoff({
+      provider,
+      pageType: pageState?.type || '',
+      pdfCandidateCount: pdfUrls.length,
+      explicitManualState,
+      candidateNeedsHandoff,
+    });
 
     if (shouldStartManualHandoff) {
-      paper.url = finalUrl || inputUrl;
+      paper.url = resolvedPageUrl || finalUrl || inputUrl;
       paper.provider = provider;
       // 用户导入表格中的标题优先；验证页“请稍候…”或购买页标题不得覆盖真实论文标题。
       paper.title = normalizeDetectedPaperTitle(paper.title) || detectedTitle || '';
@@ -3095,10 +3333,10 @@ async function processBatchPaper(state, paper, index) {
 
     if (scanError) return { status: 'failed', error: `页面扫描失败：${scanError.message}` };
     return {
-      status: 'needs_login',
+      status: 'failed',
       error: pdfUrls.length > 0
-        ? '已找到 PDF 候选，但返回内容不是有效 PDF'
-        : '未找到可验证的 PDF，可能需要登录或页面适配',
+        ? '已找到 PDF 候选，但返回内容不是有效 PDF，且页面未进入可恢复的登录/验证流程'
+        : '未找到可验证的 PDF，且页面未识别为可恢复的登录/验证流程',
       title: detectedTitle || normalizeDetectedPaperTitle(paper.title),
     };
   } catch (error) {
@@ -3616,7 +3854,7 @@ async function recoverSdUi(reason) {
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Freepaper] 扩展已安装/更新:', details?.reason || 'unknown');
   await chrome.storage.local.set({
-    freepaper_build_info: { version: '2.0.2', build: 'page-context-pdf-html-download-guard', installedAt: Date.now() },
+    freepaper_build_info: { version: '2.0.5', build: 'chndoi-multi-target-resolver-handoff', installedAt: Date.now() },
   });
   await migrateLegacyBatchState(`onInstalled:${details?.reason || 'unknown'}`);
   chrome.alarms.create(BATCH_RESUME_ALARM, { periodInMinutes: 1 });
@@ -3629,7 +3867,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await chrome.storage.local.set({
-    freepaper_build_info: { version: '2.0.2', build: 'page-context-pdf-html-download-guard', startedAt: Date.now() },
+    freepaper_build_info: { version: '2.0.5', build: 'chndoi-multi-target-resolver-handoff', startedAt: Date.now() },
   });
   await migrateLegacyBatchState('browser_startup');
     chrome.alarms.create(BATCH_RESUME_ALARM, { periodInMinutes: 1 });

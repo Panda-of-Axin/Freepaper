@@ -395,7 +395,7 @@ function renderGlobalTaskControl(batch, sd, monitorOpen = false) {
   const percent = total ? Math.round(processed / total * 100) : (sdActive ? 15 : 0);
   $('globalTaskFill').style.width = `${Math.max(0, Math.min(100, percent))}%`;
   $('globalTaskStats').textContent = total
-    ? t('stats', { processed, total, done: batch.done || 0, failed: batch.failed || 0 })
+    ? t('stats', { processed, total, done: batch.done || 0, failed: batch.failed || 0, waiting: batch.waiting || 0 })
     : t('singleTaskRunning');
 
   $('globalContinue').style.display = manual ? 'block' : 'none';
@@ -1101,7 +1101,8 @@ function renderBatchList() {
     let tag = '';
     let tagClass = '';
     if (paper.status === 'done') { tag = t('completed'); tagClass = 'tag-done'; }
-    else if (paper.status === 'needs_login') { tag = t('loginRequired'); tagClass = 'tag-login'; }
+    else if (paper.status === 'waiting_login' || paper.status === 'needs_login') { tag = t('loginRequired'); tagClass = 'tag-login'; }
+    else if (paper.status === 'waiting_user') { tag = t('waitingAction'); tagClass = 'tag-login'; }
     else if (paper.status === 'failed') { tag = t('failed'); tagClass = 'tag-fail'; }
     else if (paper.status === 'downloading') { tag = t('downloading'); }
     if (tag) row.appendChild(createElement('span', { className: `tag ${tagClass}`.trim(), text: tag }));
@@ -1226,7 +1227,7 @@ function renderBatchProgress(state) {
       : t('batchRunningProgress', { current: Math.min(state.current || 0, state.total), total: state.total });
     $('progressCount').textContent = `${processed}/${state.total}`;
     $('progressFill').style.width = state.total > 0 ? `${Math.round(processed/state.total*100)}%` : '0%';
-    $('progressLabel').textContent = t('batchResultLine', { done: state.done, failed: state.failed, paused: state.paused ? t('continueFromControl') : '' });
+    $('progressLabel').textContent = t('batchResultLine', { done: state.done, failed: state.failed, waiting: state.waiting || 0, paused: state.paused ? t('continueFromControl') : '' });
     $('progressSection').classList.add('visible');
     $('btnStopAll').style.display = 'block';
     $('btnStartBatch').textContent = t('stopBatch');

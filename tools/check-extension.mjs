@@ -13,12 +13,7 @@ function requireFile(relativePath) {
 }
 
 for (const file of ['background.js', 'content.js', 'i18n.js', 'popup.html', 'popup.js',
-  'task-monitor.html', 'task-monitor.js', 'onboarding.html', 'onboarding.js',
-  'examples/freepaper-example.csv',
-  'examples/regression-page-context-v2.0.2.csv',
-  'docs/CODE_AUDIT_v2.0.2_ZH.md',
-  'docs/VALIDATION_v2.0.2_ZH.md',
-  'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md']) {
+  'task-monitor.html', 'task-monitor.js', 'onboarding.html', 'onboarding.js', 'examples/freepaper-example.csv', 'examples/regression-page-context-v2.0.2.csv', 'docs/CODE_AUDIT_v2.0.2_ZH.md', 'docs/VALIDATION_v2.0.2_ZH.md', 'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md']) {
   requireFile(file);
 }
 for (const icon of Object.values(manifest.icons || {})) requireFile(icon);
@@ -76,6 +71,8 @@ for (const requiredMarker of [
   'canonicalizePublisherPdfUrl',
   'tryStartPageContextPdfDownload',
   'CONTEXT_BOUND_PDF_URL',
+  'waiting_login',
+  'shouldUseRecoverablePublisherHandoff',
 ]) {
   if (!background.includes(requiredMarker)) errors.push(`Publisher-routing marker missing from background.js: ${requiredMarker}`);
 }

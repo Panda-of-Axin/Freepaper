@@ -50,7 +50,9 @@ const chrome = {
 };
 const context = vm.createContext({
   chrome, console, URL, URLSearchParams, TextDecoder, TextEncoder, Uint8Array, Blob,
-  setTimeout, clearTimeout, setInterval: () => 0, clearInterval, fetch: async () => { throw new Error('disabled in tests'); },
+  setTimeout, clearTimeout, setInterval: () => 0, clearInterval,
+  getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity: '1' }),
+  fetch: async () => { throw new Error('disabled in tests'); },
   location: { hostname: '', href: '', pathname: '', search: '', protocol: 'https:' },
   document: {
     title: '', readyState: 'complete', body: { innerText: '' },
@@ -128,6 +130,97 @@ const viewerUrl = 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/inf2.12
 assert.equal(await context.extractPdfUrlFromViewerTab(1, viewerUrl), viewerUrl,
   'browser PDF viewer wrapper URL must not replace the original HTTPS PDF URL');
 
+
+assert.equal(context.shouldUseRecoverablePublisherHandoff({
+  provider: 'cnki', pageType: 'UNKNOWN', pdfCandidateCount: 0,
+}), true, 'CNKI must enter recoverable handoff even when the first scan finds no PDF candidate');
+
+assert.equal(context.isDoiResolverUrl('https://doi.org/10.13250/j.cnki.wndz.25110501'), true,
+  'DOI input must be recognized as a resolver URL rather than a paper page');
+assert.equal(context.isDoiResolverUrl('https://chndoi.org/Resolution/Handler?doi=10.13250/j.cnki.wndz.25110501'), true,
+  'CHNDOI multi-target pages must remain resolver pages rather than being scanned as articles');
+assert.equal(context.isChnDoiMultipleResolverUrl('https://chndoi.org/Resolution/Handler?doi=10.13250/j.cnki.wndz.25110501'), true);
+const chosenCnkiResolverTarget = context.chooseDoiResolverTarget([
+  'https://link.oversea.cnki.net/doi/10.13250/j.cnki.wndz.25110501',
+  'https://link.cnki.net/doi/10.13250/j.cnki.wndz.25110501',
+  'https://bdtq.cbpt.cnki.net/portal/journal/portal/client/paper/fa8cf8bc67d2dbd70f33d3dbe657148b',
+], '10.13250/j.cnki.wndz.25110501');
+assert.match(chosenCnkiResolverTarget, /^https:\/\/link\.cnki\.net\//,
+  'CHNDOI multi-target resolution must prefer the domestic CNKI DOI route');
+assert.equal(context.getPublisherProvider(
+  'https://bdtq.cbpt.cnki.net/portal/journal/portal/client/paper/fa8cf8bc67d2dbd70f33d3dbe657148b'
+), 'cnki', 'CNKI journal portal pages must use the recoverable CNKI workflow');
+assert.equal(context.getPublisherProvider(
+  'https://kns.cnki.net/kcms2/article/abstract?v=test'
+), 'cnki', 'CNKI KNS article pages must use the recoverable CNKI workflow');
+
+const originalTabsGetForDoi = context.chrome.tabs.get;
+storage.batch_state = { running: true, jobId: 'doi-resolution-test' };
+let doiResolutionReads = 0;
+context.chrome.tabs.get = async () => {
+  doiResolutionReads += 1;
+  if (doiResolutionReads <= 2) {
+    return { id: 1, url: 'https://doi.org/10.13250/j.cnki.wndz.25110501', status: 'complete' };
+  }
+  return {
+    id: 1,
+    url: 'https://kns.cnki.net/kcms2/article/abstract?v=test',
+    status: 'complete',
+  };
+};
+const doiResolution = await context.waitForBatchDoiResolution(1, 'doi-resolution-test', 5000);
+assert.equal(doiResolution.ok, true,
+  'batch DOI handling must ignore a transient complete doi.org page and wait for the final CNKI page');
+assert.match(doiResolution.url, /kns\.cnki\.net/);
+context.chrome.tabs.get = originalTabsGetForDoi;
+delete storage.batch_state;
+
+const originalTabsGetForChnDoi = context.chrome.tabs.get;
+const originalTabsUpdateForChnDoi = context.chrome.tabs.update;
+const originalExecuteScriptForChnDoi = context.chrome.scripting.executeScript;
+storage.batch_state = { running: true, jobId: 'chndoi-resolution-test' };
+let chnCurrentUrl = 'https://chndoi.org/Resolution/Handler?doi=10.13250/j.cnki.wndz.25110501';
+let chnUpdateTarget = '';
+context.chrome.tabs.get = async () => ({ id: 1, url: chnCurrentUrl, status: 'complete' });
+context.chrome.tabs.update = async (_tabId, update) => {
+  chnUpdateTarget = update.url;
+  chnCurrentUrl = update.url;
+  return { id: 1, url: chnCurrentUrl, status: 'loading' };
+};
+context.chrome.scripting.executeScript = async () => [{ result: [
+  'https://link.oversea.cnki.net/doi/10.13250/j.cnki.wndz.25110501',
+  'https://link.cnki.net/doi/10.13250/j.cnki.wndz.25110501',
+  'https://bdtq.cbpt.cnki.net/portal/journal/portal/client/paper/fa8cf8bc67d2dbd70f33d3dbe657148b',
+] }];
+const chnDoiResolution = await context.waitForBatchDoiResolution(
+  1, 'chndoi-resolution-test', 5000, '10.13250/j.cnki.wndz.25110501');
+assert.equal(chnDoiResolution.ok, true,
+  'CHNDOI multi-target pages must navigate to a real CNKI target instead of being closed as a failed article');
+assert.match(chnUpdateTarget, /^https:\/\/link\.cnki\.net\//);
+assert.match(chnDoiResolution.url, /^https:\/\/link\.cnki\.net\//);
+context.chrome.tabs.get = originalTabsGetForChnDoi;
+context.chrome.tabs.update = originalTabsUpdateForChnDoi;
+context.chrome.scripting.executeScript = originalExecuteScriptForChnDoi;
+delete storage.batch_state;
+assert.equal(context.shouldUseRecoverablePublisherHandoff({
+  provider: 'generic', pageType: 'ARTICLE', pdfCandidateCount: 0,
+}), false, 'generic pages without an auth signal should not hang the batch forever');
+
+const countState = {
+  papers: [
+    { status: 'done' },
+    { status: 'failed' },
+    { status: 'waiting_login' },
+    { status: 'waiting_user' },
+    { status: 'needs_login' },
+  ],
+};
+context.recalculateBatchCounts(countState);
+assert.equal(countState.done, 1);
+assert.equal(countState.failed, 1, 'login/waiting states must not be counted as failures');
+assert.equal(countState.waiting, 2);
+assert.equal(countState.needsLogin, 2, 'new waiting_login and legacy needs_login should remain distinguishable');
+
 const cnkiTask = {
   provider: 'cnki', status: 'WAITING_BROWSER_DOWNLOAD',
   title: '基于物理信息神经网络的平面问题求解',
@@ -154,5 +247,24 @@ context.document = {
   querySelectorAll: () => [],
 };
 assert.equal(context.detectSdPageState('ieee').type, 'INSTITUTION_AUTH_REQUIRED');
+
+const visiblePassword = {
+  getBoundingClientRect: () => ({ width: 240, height: 36 }),
+};
+context.location = {
+  hostname: 'kns.cnki.net', href: 'https://kns.cnki.net/kcms2/article/abstract?v=test',
+  pathname: '/kcms2/article/abstract', search: '?v=test', protocol: 'https:',
+};
+context.document = {
+  title: '双面化学机械抛光工艺中磨料分布仿真分析 - 中国知网', readyState: 'complete',
+  body: { innerText: '摘要 关键词 PDF下载 用户登录' },
+  querySelector: (selector) => selector.includes('input[type="password"]') ? visiblePassword : null,
+  querySelectorAll: (selector) => {
+    if (selector === 'input[type="password"]') return [visiblePassword];
+    return [];
+  },
+};
+assert.equal(context.detectSdPageState('cnki').type, 'ACCOUNT_AUTH_REQUIRED',
+  'a visible CNKI login form must pause for login instead of ending the batch');
 
 console.log('Freepaper targeted regression tests passed.');

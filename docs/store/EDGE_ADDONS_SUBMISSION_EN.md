@@ -25,7 +25,7 @@ Freepaper does not bypass paywalls, institutional permissions, CAPTCHAs, or webs
 
 ## Website URL
 
-`https://github.com/Panda-of-Axin/freepaper`
+`https://github.com/<YOUR_GITHUB_USERNAME>/freepaper`
 
 ## Privacy policy URL
 

@@ -6,9 +6,9 @@
   <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 </div>
 
-> **v2.0.2 page-context PDF and HTML-download guard:** fixes dynamic IEEE `stamp.jsp` and signed ScienceDirect `main.pdf` URLs being requested a second time by `chrome.downloads`, which could return `stamp.htm` or `init.htm`. Freepaper now prefers authenticated article-page fetches and starts a Blob download in that same page context; dynamic publisher endpoints are never sent directly to the downloads API.
+> **v2.0.5 CHNDOI multi-target resolver hotfix:** Chinese DOI routes that land on `chndoi.org/Resolution/Handler` are no longer mistaken for article pages. Freepaper selects the appropriate CNKI target (preferring the domestic `link.cnki.net` route), continues to the real article/CNKI page, then enters the normal recoverable login/auth/PDF workflow.
 
-Current version: **v2.0.2**
+Current version: **v2.0.5**
 
 > Freepaper helps users download content they are authorized to access. It does not bypass paywalls, institutional permissions, security verification, or website technical measures.
 

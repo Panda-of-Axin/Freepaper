@@ -1,6 +1,6 @@
 {
   "name": "freepaper-extension",
-  "version": "2.0.2",
+  "version": "2.0.5",
   "private": true,
   "type": "module",
   "scripts": {

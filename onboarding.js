@@ -28,7 +28,7 @@ async function finish(){
     if(!showAll){index=slides.length-1;render();}
     $('understood').focus();$('understood').parentElement.style.outline='2px solid #f59e0b';return;
   }
-  await chrome.storage.local.set({freepaper_onboarding_completed_v202:true,freepaper_last_seen_release:'2.0.2'});
+  await chrome.storage.local.set({freepaper_onboarding_completed_v202:true,freepaper_last_seen_release:'2.0.5'});
   try{window.close();}catch(_){location.href='about:blank';}
 }
 $('btnPrev').addEventListener('click',()=>{showAll=false;index=Math.max(0,index-1);render();});

@@ -6,9 +6,9 @@
   <p><a href="README.md">English</a> · <strong>简体中文</strong></p>
 </div>
 
-> **v2.0.2 页面上下文下载与 HTM 防护：** 修复 IEEE `stamp.jsp`、ScienceDirect 签名 `main.pdf` 等动态地址被 `chrome.downloads` 二次请求后返回 `stamp.htm`、`init.htm` 的问题。Freepaper 现在优先在论文详情页的真实登录上下文中验证 PDF，并在同一页面内触发 Blob 下载；动态出版商地址不再直接交给下载 API。
+> **v2.0.5 CHNDOI 多重解析页热修复：** 对于会进入 `chndoi.org/Resolution/Handler` 的中文 DOI，Freepaper 不再把“多重解析地址选择页面”当作论文页。它会自动选择合适的知网真实入口（优先境内 `link.cnki.net`），继续等待到论文/知网页面，再进入登录、机构认证或 PDF 流程。
 
-当前版本：**v2.0.2**
+当前版本：**v2.0.5**
 
 > Freepaper 只帮助用户处理自己有权访问的内容，不绕过付费墙、机构权限、安全验证或网站技术措施。
 

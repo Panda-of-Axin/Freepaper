@@ -77,7 +77,7 @@ function render(snapshot, force = false) {
         : t('batchRunning'))
       : t('batchEnded');
     $('progressFill').style.width = total ? `${Math.round(processed / total * 100)}%` : '0%';
-    $('batchStats').textContent = t('stats', { processed, total, done, failed });
+    $('batchStats').textContent = t('stats', { processed, total, done, failed, waiting: batch.waiting || 0 });
     const index = Number.isInteger(batch.activeIndex) && batch.activeIndex >= 0
       ? batch.activeIndex
       : Math.min(batch.nextIndex || 0, Math.max(total - 1, 0));

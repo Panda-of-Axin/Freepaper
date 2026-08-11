@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.0.5
+
+- Fixed Chinese DOI resolution pages at `chndoi.org/Resolution/Handler` being treated as final article pages and closed as failures after a short pause.
+- Added multi-target DOI resolver handling: extract the HURL choices, prefer the domestic `link.cnki.net` route for CNKI DOI records, and continue navigation before scanning.
+- Added regression coverage for DOI `10.13250/j.cnki.wndz.25110501` across `doi.org -> chndoi.org -> link.cnki.net`.
+
+## 2.0.4
+
+- Fixed DOI inputs being scanned on the transient `doi.org` resolver page before the publisher redirect completed.
+- DOI-driven CNKI tasks now wait for the final article URL to stabilize before publisher detection, so CNKI authentication enters the recoverable login/verification workflow instead of being marked failed.
+- Added regression coverage for the CNKI journal portal and KNS article routes used by `10.13250/j.cnki.wndz.25110501`.
+
+## 2.0.3
+
+- Changed publisher login/authentication from a terminal batch result into a recoverable waiting state.
+- Fixed CNKI handoff when DOI navigation reaches the article page after `tab.url` was sampled too early; page-context `location.href` now drives provider detection.
+- Detects visible CNKI login dialogs/forms and waits for the user to complete login, then resumes the same paper.
+- Batch statistics now separate failures from active manual/login waits.
+
 ## 2.0.2
 
 - Audited the v2.0.1 runtime after real IEEE and ScienceDirect tests downloaded `stamp.htm` and `init.htm`.

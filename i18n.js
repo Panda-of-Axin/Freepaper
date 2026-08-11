@@ -7,7 +7,7 @@
 
   const messages = {
     en: {
-      versionLabel: 'v2.0.2 · Page-context PDF & HTML-download guard',
+      versionLabel: 'v2.0.5 · CHNDOI multi-target resolver hotfix',
       refreshStatus: 'Refresh status',
       help: 'Help', openHelp: 'Open help', quickStartTitle: 'New here? Start in four steps',
       quickStep1: 'Prepare a CSV, TSV, or TXT file containing DOI or URL fields.',
@@ -37,7 +37,7 @@
       taskRunning: 'Task is running.', unknownPaper: 'Unknown paper', statusPrefix: 'Status: {status}',
       pauseAfterCurrent: 'Pause requested. No new paper will start after the current one finishes.',
       batchPausedResumeAt: 'Batch paused. It will resume from paper {index}.', batchRunningAt: 'Batch download: {current} / {total}',
-      stats: '{processed}/{total} · Success {done} · Failed/login {failed}', singleTaskRunning: 'Single-paper task is running',
+      stats: '{processed}/{total} · Success {done} · Failed {failed} · Waiting {waiting}', singleTaskRunning: 'Single-paper task is running',
       scanInProgress: '📄 Scanning…', scanningCurrentPage: '⏳ Scanning the current page…', noActiveTab: 'No active tab',
       currentPageCount: '📄 Current page · {count} PDF candidate(s)', download: 'Download', currentPage: '📄 Current page',
       noPdfDetected: 'No PDF link was detected.', pageUrl: 'Page: {url}', pageTitle: 'Title: {title}', unknown: 'Unknown', retryScan: '🔄 Rescan',
@@ -46,11 +46,11 @@
       pdfDownloaded: 'PDF downloaded', noValidPdf: 'No valid PDF found', downloadTriggered: 'Download started', notPdfSkipped: 'Not a PDF; skipped',
       diagnosticHint: '{prefix}Test table: {records} URL cases → {papers} download items ({duplicates} duplicate entries merged{titles})',
       titleThemes: '; {count} title topic(s)', recordsHint: '{prefix}{records} records → {papers} papers ({duplicates} duplicates merged)',
-      papersHint: '{prefix}{papers} papers', completed: 'Done', loginRequired: 'Login required', failed: 'Failed', downloading: 'Downloading',
+      papersHint: '{prefix}{papers} papers', completed: 'Done', loginRequired: 'Login required', waitingAction: 'Waiting for action', failed: 'Failed', downloading: 'Downloading',
       loading: 'Loading…', readFailed: 'Read failed: {message}', stopRunningFirst: 'Stop the running batch first.',
       pasteOrLoadFirst: 'Paste DOI/URL entries or load a file first.', batchAlreadyRunning: 'A batch task is already running', startFailed: 'Failed to start: {message}',
       batchPausedAt: 'Batch paused · {processed}/{total}', batchRunningProgress: 'Batch downloading… {current}/{total}',
-      batchResultLine: '{done} succeeded, {failed} failed{paused}', continueFromControl: '; resume from the control center',
+      batchResultLine: '{done} succeeded, {failed} failed, {waiting} waiting{paused}', continueFromControl: '; resume from the control center',
       stoppedWithReason: 'Stopped: {reason}', stoppedSummary: '{done} succeeded, {failed} failed; click Start to run again',
       completionStatus: 'Completed: {done}✅ {failed}❌ {login}🔐', completionStats: '{done} success · {failed} failed · {login} login required',
       retryFailed: '🔄 Retry failed/login-required ({count})', downloadComplete: '📊 Download task complete',
@@ -82,11 +82,11 @@
       batchProgress: 'Batch download progress', noBatchTask: 'No batch task', monitorHint: 'This is an auxiliary monitor. Closing it does not stop the background task; reopen or focus it from the extension main panel.',
       noManualPaper: 'No paper currently needs manual action', batchPaused: 'Batch paused', batchRunning: 'Batch running', auxiliaryMonitor: 'Live monitor',
       currentFinishesThenPause: 'Pausing after the current paper', batchEnded: 'Batch task ended', currentItem: 'Current: {index}/{total} · {paper} · {status}',
-      status_pending: 'Pending', status_downloading: 'Downloading', status_done: 'Done', status_failed: 'Failed', status_needs_login: 'Login required',
+      status_pending: 'Pending', status_downloading: 'Downloading', status_waiting_user: 'Waiting for action', status_waiting_login: 'Waiting for login', status_done: 'Done', status_failed: 'Failed', status_needs_login: 'Login required (legacy)',
       confirmClearRecent: 'Clear the Freepaper recent-download list? Downloaded files will not be deleted.'
     },
     zh_CN: {
-      versionLabel: 'v2.0.2 · 页面上下文 PDF 与 HTM 下载防护',
+      versionLabel: 'v2.0.5 · CHNDOI 多重解析页自动接管',
       refreshStatus: '刷新状态',
       help: '帮助', openHelp: '打开帮助', quickStartTitle: '第一次使用？按四步开始',
       quickStep1: '准备包含 DOI 或 URL 字段的 CSV、TSV 或 TXT。',
@@ -115,7 +115,7 @@
       taskRunning: '任务正在执行。', unknownPaper: '未知论文', statusPrefix: '状态：{status}',
       pauseAfterCurrent: '暂停请求已生效；当前篇处理完成后不会启动下一篇。',
       batchPausedResumeAt: '批量任务已暂停，将从第 {index} 篇继续。', batchRunningAt: '批量下载正在执行：{current} / {total}',
-      stats: '{processed}/{total} · 成功 {done} · 失败/需登录 {failed}', singleTaskRunning: '单篇任务正在执行',
+      stats: '{processed}/{total} · 成功 {done} · 失败 {failed} · 等待人工 {waiting}', singleTaskRunning: '单篇任务正在执行',
       scanInProgress: '📄 扫描中…', scanningCurrentPage: '⏳ 正在扫描当前页面…', noActiveTab: '没有活动标签页',
       currentPageCount: '📄 当前页面 · {count} 个 PDF', download: '下载', currentPage: '📄 当前页面',
       noPdfDetected: '未检测到 PDF 链接。', pageUrl: '当前页面：{url}', pageTitle: '标题：{title}', unknown: '未知', retryScan: '🔄 重新扫描',
@@ -124,11 +124,11 @@
       pdfDownloaded: 'PDF 已下载', noValidPdf: '未找到有效 PDF', downloadTriggered: '下载已触发', notPdfSkipped: '不是 PDF，已跳过',
       diagnosticHint: '{prefix}测试表 {records} 条 URL 场景 → {papers} 个下载对象（按 DOI/文献标识合并 {duplicates} 条{titles}）',
       titleThemes: '；涉及 {count} 个标题主题', recordsHint: '{prefix}{records} 条记录 → {papers} 篇（合并重复 {duplicates} 条）',
-      papersHint: '{prefix}{papers} 篇', completed: '完成', loginRequired: '需登录', failed: '失败', downloading: '下载中',
+      papersHint: '{prefix}{papers} 篇', completed: '完成', loginRequired: '等待登录', waitingAction: '等待操作', failed: '失败', downloading: '下载中',
       loading: '加载中…', readFailed: '读取失败：{message}', stopRunningFirst: '请先停止正在运行的批量任务',
       pasteOrLoadFirst: '请先粘贴 DOI 或链接，或加载文件', batchAlreadyRunning: '已有批量任务正在运行', startFailed: '启动失败：{message}',
       batchPausedAt: '批量任务已暂停 · {processed}/{total}', batchRunningProgress: '批量下载中… {current}/{total}',
-      batchResultLine: '{done} 篇成功，{failed} 篇失败{paused}', continueFromControl: '；可从总控台继续',
+      batchResultLine: '{done} 篇成功，{failed} 篇失败，{waiting} 篇等待人工{paused}', continueFromControl: '；可从总控台继续',
       stoppedWithReason: '已停止：{reason}', stoppedSummary: '{done} 篇成功，{failed} 篇失败；可再次点击开始重新执行',
       completionStatus: '完成：{done}✅ {failed}❌ {login}🔐', completionStats: '{done} 成功 · {failed} 失败 · {login} 需登录',
       retryFailed: '🔄 重试失败/需登录 ({count} 篇)', downloadComplete: '📊 下载任务完成',
@@ -157,7 +157,7 @@
       batchProgress: '批量下载进度', noBatchTask: '没有批量任务', monitorHint: '此窗口是辅助监控界面。关闭后不会影响后台任务，可随时从扩展主面板重新打开或聚焦。',
       noManualPaper: '当前没有需要人工处理的论文', batchPaused: '批量已暂停', batchRunning: '批量运行中', auxiliaryMonitor: '辅助监控',
       currentFinishesThenPause: '当前篇完成后暂停', batchEnded: '批量任务已结束', currentItem: '当前：{index}/{total} · {paper} · {status}',
-      status_pending: '待处理', status_downloading: '下载中', status_done: '完成', status_failed: '失败', status_needs_login: '需登录',
+      status_pending: '待处理', status_downloading: '下载中', status_waiting_user: '等待操作', status_waiting_login: '等待登录', status_done: '完成', status_failed: '失败', status_needs_login: '需登录（旧任务）',
       confirmClearRecent: '清空 Freepaper 最近下载列表？已下载文件不会被删除。'
     }
   };
