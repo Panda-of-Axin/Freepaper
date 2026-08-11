@@ -18,7 +18,7 @@ for (const file of ['background.js', 'content.js', 'i18n.js', 'popup.html', 'pop
   'examples/regression-page-context-v2.0.2.csv',
   'docs/CODE_AUDIT_v2.0.2_ZH.md',
   'docs/VALIDATION_v2.0.2_ZH.md',
-  'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md') {
+  'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md']) {
   requireFile(file);
 }
 for (const icon of Object.values(manifest.icons || {})) requireFile(icon);
