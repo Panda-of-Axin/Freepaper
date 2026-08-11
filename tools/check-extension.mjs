@@ -13,7 +13,12 @@ function requireFile(relativePath) {
 }
 
 for (const file of ['background.js', 'content.js', 'i18n.js', 'popup.html', 'popup.js',
-  'task-monitor.html', 'task-monitor.js', 'onboarding.html', 'onboarding.js', 'examples/freepaper-example.csv', 'examples/Freepaper_v2.0.2_页面上下文下载回归测试.csv', 'docs/Freepaper_v2.0.2_代码审计与修复说明.md', 'docs/Freepaper_v2.0.2_功能验证与回归测试文档.md', 'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md']) {
+  'task-monitor.html', 'task-monitor.js', 'onboarding.html', 'onboarding.js',
+  'examples/freepaper-example.csv',
+  'examples/regression-page-context-v2.0.2.csv',
+  'docs/CODE_AUDIT_v2.0.2_ZH.md',
+  'docs/VALIDATION_v2.0.2_ZH.md',
+  'LICENSE', 'privacy-policy.md', 'README.md', 'README.zh-CN.md') {
   requireFile(file);
 }
 for (const icon of Object.values(manifest.icons || {})) requireFile(icon);
