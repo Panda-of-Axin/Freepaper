@@ -28,7 +28,7 @@ Freepaper 不绕过付费墙、验证码、机构权限或网站技术措施。
 
 ## Privacy policy URL
 
-`https://github.com/<YOUR_GITHUB_USERNAME>/freepaper/blob/main/privacy-policy.md`
+`https://github.com/Panda-of-Axin/freepaper/blob/main/privacy-policy.md`
 
 ## 远程代码声明
 
