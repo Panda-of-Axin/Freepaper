@@ -1,6 +1,6 @@
 # 审核人员测试说明
 
-目标版本：**Freepaper v2.0.2**
+目标版本：**以 `manifest.json` 中声明的当前版本为准**
 
 ## 无账号公开测试
 
@@ -29,6 +29,6 @@
 ScienceDirect 页面可能要求机构权限、VPN或人工验证。Freepaper可对明确识别的 View PDF / Download PDF 入口自动尝试一次，但不会自动操作验证码或机构登录；需要人工操作时会暂停并在完成后恢复。Freepaper不绕过这些要求。审核核心功能无需 ScienceDirect 测试账号，公开 arXiv 流程即可完成。
 
 
-## v2.0.2 动态 PDF 防护
+## 动态 PDF 防护
 
 IEEE、Wiley、ScienceDirect 和知网的动态 PDF 地址不会直接交给浏览器下载 API 二次请求。扩展会先在已登录论文页面上下文中检查 `%PDF-` 文件头；测试过程中不应出现 `stamp.htm` 或 `init.htm`。若站点禁止页面内自动保存，扩展会保留 PDF 查看器并等待用户使用查看器下载按钮。

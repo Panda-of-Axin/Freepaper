@@ -7,7 +7,7 @@
 
   const messages = {
     en: {
-      versionLabel: 'v2.0.5 · CHNDOI multi-target resolver hotfix',
+      versionLabel: 'v2.0.5 · Academic PDF workflow',
       refreshStatus: 'Refresh status',
       help: 'Help', openHelp: 'Open help', quickStartTitle: 'New here? Start in four steps',
       quickStep1: 'Prepare a CSV, TSV, or TXT file containing DOI or URL fields.',
@@ -86,7 +86,7 @@
       confirmClearRecent: 'Clear the Freepaper recent-download list? Downloaded files will not be deleted.'
     },
     zh_CN: {
-      versionLabel: 'v2.0.5 · CHNDOI 多重解析页自动接管',
+      versionLabel: 'v2.0.5 · 学术 PDF 工作流',
       refreshStatus: '刷新状态',
       help: '帮助', openHelp: '打开帮助', quickStartTitle: '第一次使用？按四步开始',
       quickStep1: '准备包含 DOI 或 URL 字段的 CSV、TSV 或 TXT。',

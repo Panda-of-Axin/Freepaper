@@ -1,6 +1,6 @@
 # Reviewer test instructions / 审核测试步骤
 
-Target version: **Freepaper v2.0.2**
+Target version: **the version declared in `manifest.json`**
 
 ## Public workflow (no account required)
 
@@ -26,6 +26,6 @@ ScienceDirect may require the reviewer's own institutional access or security ve
 审核人员可使用上述公开 arXiv DOI 测试，无需账号。语言切换位于“设置 → 界面语言”。ScienceDirect 可能要求审核人员自己的机构权限，Freepaper 不绕过验证码或访问控制。
 
 
-## v2.0.2 dynamic-PDF guard
+## Dynamic-PDF guard
 
 Dynamic IEEE, Wiley, ScienceDirect and CNKI PDF endpoints are not re-requested directly through the downloads API. Freepaper first verifies the `%PDF-` signature in the authenticated article-page context. Tests must not create `stamp.htm` or `init.htm`. If the site blocks page-context saving, the PDF viewer remains open and the extension waits for its download event.

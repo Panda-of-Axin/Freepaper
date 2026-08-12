@@ -1,6 +1,0 @@
-﻿case_id,doi,url,site,access,expected_result,must_not_happen,test_purpose
-ARXIV_STABLE_CONTROL,10.48550/arXiv.2010.08895,https://arxiv.org/pdf/2010.08895,arXiv,oa,downloaded_pdf_in_freepaper_folder,HTML download,验证普通稳定PDF直链未被新防护误伤
-IEEE_CONTEXT_DOWNLOAD,,https://ieeexplore.ieee.org/document/9282004,IEEE Xplore,institution_or_subscription,page_context_pdf_or_auth_then_pdf_or_viewer_handoff,stamp.htm; infinite refresh,验证stamp.jsp规范化与页面上下文下载
-WILEY_CONTEXT_DOWNLOAD,10.1002/inf2.12028,https://onlinelibrary.wiley.com/doi/full/10.1002/inf2.12028,Wiley Online Library,oa_or_challenge,page_context_pdf_or_viewer_handoff,HTML download; untracked PDF,验证pdfdirect页面上下文下载与统计
-SCIENCEDIRECT_CONTEXT_DOWNLOAD,10.1016/j.jcp.2018.10.045,https://www.sciencedirect.com/science/article/pii/S0021999118307125,ScienceDirect,institution_or_subscription,page_context_pdf_or_auth_then_pdf_or_viewer_handoff,init.htm; favicon/image download,验证pdfft优先与签名main.pdf二次请求防护
-CNKI_BROWSER_DOWNLOAD_TRACKING,,,CNKI main site,institution_or_subscription,auth_then_browser_pdf_tracked,download_completed_but_not_counted,请替换为自己有权限下载的知网详情页，验证文件夹和计数

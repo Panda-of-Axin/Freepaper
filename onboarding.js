@@ -28,7 +28,7 @@ async function finish(){
     if(!showAll){index=slides.length-1;render();}
     $('understood').focus();$('understood').parentElement.style.outline='2px solid #f59e0b';return;
   }
-  await chrome.storage.local.set({freepaper_onboarding_completed_v202:true,freepaper_last_seen_release:'2.0.5'});
+  await chrome.storage.local.set({freepaper_onboarding_completed_v202:true,freepaper_last_seen_release:chrome.runtime.getManifest().version});
   try{window.close();}catch(_){location.href='about:blank';}
 }
 $('btnPrev').addEventListener('click',()=>{showAll=false;index=Math.max(0,index-1);render();});
@@ -38,6 +38,6 @@ $('btnCopyExample').addEventListener('click',(event)=>void copyExample(event.cur
 $('btnHelpMode').addEventListener('click',()=>{showAll=!showAll;render();window.scrollTo({top:0,behavior:'smooth'});});
 $('btnDiagnostic').addEventListener('click',async()=>{const result=await chrome.runtime.sendMessage({type:'GET_DIAGNOSTIC_REPORT'}).catch(()=>null);$('diagnostic').textContent=result?.report||'Unable to read diagnostics.';$('diagnostic').style.display='block';$('btnCopy').style.display='inline-block';});
 $('btnCopy').addEventListener('click',async()=>{await navigator.clipboard.writeText($('diagnostic').textContent).catch(()=>null);$('btnCopy').textContent='已复制';});
-if(mode==='update'){$('heroSubtitle').textContent='本次更新：通用认证识别、IEEE 防循环、PDF 自动保存与下载追踪';}
+if(mode==='update'){$('heroSubtitle').textContent='Freepaper 已更新到当前版本；详细变化请查看 CHANGELOG / Release Notes';}
 if(mode==='help'){$('heroSubtitle').textContent='使用指南、设计原因与诊断中心';}
 render();

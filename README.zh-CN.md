@@ -6,9 +6,7 @@
   <p><a href="README.md">English</a> · <strong>简体中文</strong></p>
 </div>
 
-> **v2.0.5 CHNDOI 多重解析页热修复：** 对于会进入 `chndoi.org/Resolution/Handler` 的中文 DOI，Freepaper 不再把“多重解析地址选择页面”当作论文页。它会自动选择合适的知网真实入口（优先境内 `link.cnki.net`），继续等待到论文/知网页面，再进入登录、机构认证或 PDF 流程。
-
-当前版本：**v2.0.5**
+> 当前变更与历史版本统一维护在 [CHANGELOG.md](CHANGELOG.md) 和 GitHub Releases 中。
 
 > Freepaper 只帮助用户处理自己有权访问的内容，不绕过付费墙、机构权限、安全验证或网站技术措施。
 
@@ -40,7 +38,7 @@ Freepaper 没有把“全自动”理解为无限重试或集中抓取，而是�
 3. **自动打开仅限明确 PDF 入口。** 程序优先读取 `citation_pdf_url`、明确 PDF 路由或清晰的 View PDF / Download PDF 按钮；同一页面自动尝试一次，不无限刷新。
 4. **验证码和机构登录由用户完成。** Freepaper 不模拟鼠标、不自动操作验证码，也不绕过权限；完成后继续识别后续页面。
 5. **真实 PDF 由 Freepaper 保存。** 一旦确认进入 PDF 查看器，程序尽量直接保存到用户设定的子文件夹，而不是依赖用户点击浏览器保存按钮。
-6. **避免动态 PDF 地址被二次请求。** IEEE、Wiley、ScienceDirect、知网的 PDF 端点可能依赖当前页面的 Cookie、Referrer、机构认证或一次性令牌。v2.0.2 不再把这类地址直接交给 `chrome.downloads.download()`，而是优先在论文页面上下文中获取 PDF 字节，再由同一页面触发 Blob 下载，防止下载出 `stamp.htm`、`init.htm` 等验证页面。
+6. **避免动态 PDF 地址被二次请求。** IEEE、Wiley、ScienceDirect、知网的 PDF 端点可能依赖当前页面的 Cookie、Referrer、机构认证或一次性令牌。Freepaper 不再把这类地址直接交给 `chrome.downloads.download()`，而是优先在论文页面上下文中获取 PDF 字节，再由同一页面触发 Blob 下载，防止下载出 `stamp.htm`、`init.htm` 等验证页面。
 
 不同数据库和学校的许可规则不同。请勿用于整卷、整期、系统性全文获取或其他违反平台/机构规定的用途。
 
@@ -149,9 +147,9 @@ npm run verify
 
 - 商店上架模板：[`docs/store/`](docs/store/)
 - 发布检查表：[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
-- v2.0.2 代码审计与修复说明：[`docs/CODE_AUDIT_v2.0.2_ZH.md`](docs/CODE_AUDIT_v2.0.2_ZH.md)
-- v2.0.2 验证文档：[`docs/VALIDATION_v2.0.2_ZH.md`](docs/VALIDATION_v2.0.2_ZH.md)
-- v2.0.2 回归测试 CSV：[`examples/regression-page-context-v2.0.2.csv`](examples/regression-page-context-v2.0.2.csv)
+- 当前代码审计约束：[`docs/CODE_AUDIT.md`](docs/CODE_AUDIT.md)
+- 通用验证方案：[`docs/VALIDATION.md`](docs/VALIDATION.md)
+- 自动发布流程：[`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - 商店素材：[`store-assets/`](store-assets/)
 
 ## 已知限制
@@ -160,7 +158,7 @@ npm run verify
 - Freepaper 不能下载用户没有访问权限的内容；
 - 页面结构变化可能需要后续适配；
 - 浏览器下载 API 只能保存到浏览器配置的下载目录及其子目录；
-- 浏览器已经完成且未被 Freepaper 在文件名确定阶段识别的外部下载，扩展无法事后移动；v2.0.2 会在页面内触发下载之前先进入任务等待状态，并在文件名确定阶段关联到 Freepaper 子目录。
+- 浏览器已经完成且未被 Freepaper 在文件名确定阶段识别的外部下载，扩展无法事后移动；Freepaper 会在页面内触发下载之前先进入任务等待状态，并在文件名确定阶段关联到 Freepaper 子目录。
 - 某些浏览器内置 PDF 查看器不允许扩展控制其工具栏。如果出版商同时阻止页面上下文 `fetch`，Freepaper 会停止自动二次请求并等待用户点击查看器下载按钮，以避免生成 HTM 假文件。
 
 ## 贡献、安全、许可证与品牌

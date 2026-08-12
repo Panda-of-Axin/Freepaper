@@ -6,7 +6,9 @@
   "scripts": {
     "check": "node tools/check-extension.mjs",
     "test": "node tools/regression-tests.mjs",
-    "verify": "npm run check && npm run test"
+    "verify": "npm run check && npm run test",
+    "package:release": "node tools/package-extension.mjs",
+    "release": "node tools/release.mjs"
   },
   "license": "MPL-2.0"
 }

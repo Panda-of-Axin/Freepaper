@@ -1,0 +1,52 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify source
+        run: npm run verify
+      - name: Check tag matches manifest
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version")
+          test "${GITHUB_REF_NAME}" = "v${VERSION}" || { echo "Tag ${GITHUB_REF_NAME} does not match manifest v${VERSION}"; exit 1; }
+      - name: Build release packages
+        run: npm run package:release
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version")
+          TAG="v${VERSION}"
+          ASSETS=(
+            "dist/Freepaper_v${VERSION}_Chrome_Web_Store_Upload.zip"
+            "dist/Freepaper_v${VERSION}_Edge_Addons_Upload.zip"
+            "dist/SHA256SUMS.txt"
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$TAG" "${ASSETS[@]}" --title "Freepaper ${TAG}" --notes-file dist/RELEASE_NOTES.md
+          fi
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: freepaper-release-${{ github.ref_name }}
+          path: dist/

@@ -12,7 +12,7 @@
 
 ## Screenshots still required
 
-Capture screenshots from the real v2.0.2 extension before submission.
+Capture screenshots from the exact current release build before submission; do not use synthetic or outdated screenshots.
 
 ### Microsoft Edge Add-ons
 

@@ -6,9 +6,7 @@
   <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 </div>
 
-> **v2.0.5 CHNDOI multi-target resolver hotfix:** Chinese DOI routes that land on `chndoi.org/Resolution/Handler` are no longer mistaken for article pages. Freepaper selects the appropriate CNKI target (preferring the domestic `link.cnki.net` route), continues to the real article/CNKI page, then enters the normal recoverable login/auth/PDF workflow.
-
-Current version: **v2.0.5**
+> Release history and current changes are maintained in [CHANGELOG.md](CHANGELOG.md) and GitHub Releases.
 
 > Freepaper helps users download content they are authorized to access. It does not bypass paywalls, institutional permissions, security verification, or website technical measures.
 
@@ -38,7 +36,7 @@ Current version: **v2.0.5**
 3. **Only clear PDF actions are automated.** Freepaper uses metadata, strict PDF routes, or a clear View PDF / Download PDF control and tries it once per page state.
 4. **Verification remains human.** CAPTCHAs and institutional authentication are never automated or bypassed.
 5. **Confirmed PDFs are saved by Freepaper.** This keeps files in the configured subfolder and aligns the task count with actual downloads.
-6. **Dynamic PDF endpoints are not re-requested by the downloads API.** IEEE, Wiley, ScienceDirect, and CNKI routes may depend on the current page Referrer, cookies, institutional authentication, or one-time tokens. v2.0.2 fetches and verifies the PDF in the authenticated article page and starts a Blob download there, preventing HTML challenge pages from being saved as PDF downloads.
+6. **Dynamic PDF endpoints are not re-requested by the downloads API.** IEEE, Wiley, ScienceDirect, and CNKI routes may depend on the current page Referrer, cookies, institutional authentication, or one-time tokens. Freepaper fetches and verifies the PDF in the authenticated article page and starts a Blob download there, preventing HTML challenge pages from being saved as PDF downloads.
 
 Do not use Freepaper for systematic full-text harvesting, whole issues/volumes, or any use that violates publisher or institutional rules.
 
@@ -103,9 +101,9 @@ Freepaper does not upload paper lists, browsing history, authentication informat
 npm run verify
 ```
 
-- Code audit and fix notes: [`docs/CODE_AUDIT_v2.0.2_ZH.md`](docs/CODE_AUDIT_v2.0.2_ZH.md)
-- Validation plan: [`docs/VALIDATION_v2.0.2_ZH.md`](docs/VALIDATION_v2.0.2_ZH.md)
-- Regression CSV: [`examples/regression-page-context-v2.0.2.csv`](examples/regression-page-context-v2.0.2.csv)
+- Current code-audit guardrails: [`docs/CODE_AUDIT.md`](docs/CODE_AUDIT.md)
+- Reusable validation plan: [`docs/VALIDATION.md`](docs/VALIDATION.md)
+- Release process: [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - Store documents: [`docs/store/`](docs/store/)
 
 ## Known limitations
@@ -114,7 +112,7 @@ npm run verify
 - Freepaper cannot retrieve content the user is not authorized to access;
 - Publisher page structures can change;
 - The downloads API saves under the browser Downloads directory;
-- A browser download that has already completed before Freepaper can identify it cannot be moved afterward. v2.0.2 enters the task-scoped waiting state before page-context downloads are triggered, so `onDeterminingFilename` can place them in the Freepaper subfolder.
+- A browser download that has already completed before Freepaper can identify it cannot be moved afterward. Freepaper enters the task-scoped waiting state before page-context downloads are triggered, so `onDeterminingFilename` can place them in the Freepaper subfolder.
 - Built-in PDF viewer toolbars cannot always be controlled by extensions. If a publisher also blocks page-context fetching, Freepaper stops automatic re-requests and waits for the user to use the viewer download button rather than saving an HTML challenge page.
 
 ## Contributing, security, license, and trademarks

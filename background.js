@@ -3854,7 +3854,7 @@ async function recoverSdUi(reason) {
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Freepaper] 扩展已安装/更新:', details?.reason || 'unknown');
   await chrome.storage.local.set({
-    freepaper_build_info: { version: '2.0.5', build: 'chndoi-multi-target-resolver-handoff', installedAt: Date.now() },
+    freepaper_build_info: { version: chrome.runtime.getManifest().version, build: 'store-release', installedAt: Date.now() },
   });
   await migrateLegacyBatchState(`onInstalled:${details?.reason || 'unknown'}`);
   chrome.alarms.create(BATCH_RESUME_ALARM, { periodInMinutes: 1 });
@@ -3867,7 +3867,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await chrome.storage.local.set({
-    freepaper_build_info: { version: '2.0.5', build: 'chndoi-multi-target-resolver-handoff', startedAt: Date.now() },
+    freepaper_build_info: { version: chrome.runtime.getManifest().version, build: 'store-release', startedAt: Date.now() },
   });
   await migrateLegacyBatchState('browser_startup');
     chrome.alarms.create(BATCH_RESUME_ALARM, { periodInMinutes: 1 });
